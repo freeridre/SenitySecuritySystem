@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"name": "Arduino Mega ADK Inside",
+			"path": "F:\\OneDrive - Óbudai egyetem\\beagy projektek\\belepteto\\codes\\VSC\\Arduino Mega ADK Inside"
+		}
+	],
+	"settings": {
+		"terminal.integrated.env.windows": {
+			"PATH": "C:\\Users\\danie\\.platformio\\penv\\Scripts;C:\\Users\\danie\\.platformio\\penv;C:\\Program Files (x86)\\Common Files\\Oracle\\Java\\javapath;C:\\Program Files (x86)\\Common Files\\Intel\\Shared Libraries\\redist\\ia32\\compiler;C:\\Program Files (x86)\\Common Files\\Intel\\Shared Libraries\\redist\\intel64\\compiler;C:\\ProgramData\\Oracle\\Java\\javapath;C:\\WINDOWS\\system32;C:\\WINDOWS;C:\\WINDOWS\\System32\\Wbem;C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\;C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common;F:\\Program Files (x86)\\Microchip\\xc16\\v1.32\\bin;F:\\Program Files (x86)\\Microchip\\xc8\\v1.43\\bin;F:\\Program Files (x86)\\Microchip\\xc32\\v1.44\\bin;F:\\Program Files\\PuTTY\\;f:\\Program Files\\MATLAB\\R2017b\\bin;C:\\WINDOWS\\System32\\OpenSSH\\;C:\\Program Files\\NVIDIA Corporation\\NVIDIA NvDLISR;C:\\WINDOWS\\system32;C:\\WINDOWS;C:\\WINDOWS\\System32\\Wbem;C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\;C:\\WINDOWS\\System32\\OpenSSH\\;f:\\Program Files\\Git\\cmd;C:\\Program Files\\Microsoft SQL Server\\110\\Tools\\Binn\\;C:\\Users\\danie\\AppData\\Local\\Programs\\Python\\Python37-32\\Scripts\\;C:\\Users\\danie\\AppData\\Local\\Programs\\Python\\Python37-32\\;C:\\Users\\danie\\AppData\\Local\\Microsoft\\WindowsApps;;C:\\Users\\danie\\AppData\\Local\\Programs\\Microsoft VS Code\\bin;C:\\Program Files (x86)\\Common Files\\Oracle\\Java\\javapath;C:\\Program Files (x86)\\Common Files\\Intel\\Shared Libraries\\redist\\ia32\\compiler;C:\\Program Files (x86)\\Common Files\\Intel\\Shared Libraries\\redist\\intel64\\compiler;C:\\ProgramData\\Oracle\\Java\\javapath;C:\\WINDOWS\\system32;C:\\WINDOWS;C:\\WINDOWS\\System32\\Wbem;C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\;C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common;F:\\Program Files (x86)\\Microchip\\xc16\\v1.32\\bin;F:\\Program Files (x86)\\Microchip\\xc8\\v1.43\\bin;F:\\Program Files (x86)\\Microchip\\xc32\\v1.44\\bin;F:\\Program Files\\PuTTY\\;f:\\Program Files\\MATLAB\\R2017b\\bin;C:\\WINDOWS\\System32\\OpenSSH\\;C:\\Program Files\\NVIDIA Corporation\\NVIDIA NvDLISR;C:\\WINDOWS\\system32;C:\\WINDOWS;C:\\WINDOWS\\System32\\Wbem;C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\;C:\\WINDOWS\\System32\\OpenSSH\\;f:\\Program Files\\Git\\cmd;C:\\Program Files\\Microsoft SQL Server\\110\\Tools\\Binn\\;C:\\Users\\danie\\AppData\\Local\\Programs\\Python\\Python37-32\\Scripts\\;C:\\Users\\danie\\AppData\\Local\\Programs\\Python\\Python37-32\\;C:\\Users\\danie\\AppData\\Local\\Microsoft\\WindowsApps;;C:\\Users\\danie\\AppData\\Local\\Programs\\Microsoft VS Code\\bin",
+			"PLATFORMIO_CALLER": "vscode"
+		},
+		"editor.fontSize": 16,
+		"files.autoSave": "afterDelay",
+		"editor.wordWrap": "on"
+	}
+}

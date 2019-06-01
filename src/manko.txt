@@ -1,0 +1,765 @@
+#include <Wire.h>
+#include <SPI.h>
+#include <TimerOne.h>
+#include <EEPROM.h>
+#include <Adafruit_PN532.h>
+#include <TimerThree.h>
+#define PN532_SCK  (52)
+#define PN532_MOSI (51)
+#define PN532_SS   (53)
+#define PN532_MISO (50)
+Adafruit_PN532 nfc(PN532_SCK, PN532_MISO, PN532_MOSI, PN532_SS);
+int uzemmod;
+//KARTYATANITAS
+int eeAddresseeprom = 4000;
+int kartyadbeprom = 4002;
+int eepromcimeeprom = 4001;
+//int kartyadba = 1;
+int kartyadb;
+int eepromcim = 0;
+//tarolo a buzzvonfirmhoz
+//int abcde = 0;
+
+int eeAddress = EEPROM.read(eeAddresseeprom);
+
+
+
+
+ 
+//const int eeAddress;
+
+//EEPROM
+int address = 0;
+byte value;
+byte value2;
+byte value3;
+
+void setup() {
+  
+  
+  //EEPROM.write(kartyadbeprom, kartyadba);
+  //kartyadb = EEPROM.read(kartyadbeprom);
+  EEPROM.write(eepromcimeeprom, eepromcim);
+  
+  kartyadb = EEPROM.read(kartyadbeprom);
+  eepromcim = EEPROM.read(eepromcimeeprom);
+// Vin STATE LEDS TIMER3 INITIALIZE
+  Timer3.initialize(250000);
+  Timer3.attachInterrupt(POWERON);
+  Serial.begin(115200);
+  Timer1.initialize(250000);
+  
+  // LED CONFIG
+  pinMode(22, OUTPUT); //white
+  pinMode(23, OUTPUT); //yellow
+  pinMode(24, OUTPUT); //BLUE
+  pinMode(25, OUTPUT); //POWERBLUE1
+  pinMode(26, OUTPUT); //POWERBLUE2
+  pinMode(27, OUTPUT); //POWERBLUE3
+  pinMode(28, OUTPUT); //RED
+  pinMode(29, OUTPUT);
+  pinMode(33, OUTPUT);  //PIR STATUS LED
+  //BUTTONS CONFIG
+  pinMode(13, INPUT); //ELSO (BALROL)
+  pinMode(12, INPUT); //MASODIK 
+  pinMode(11, INPUT); //HARMADIK 
+  pinMode(10, INPUT); //NEGYEDIK
+  pinMode(9, INPUT);  //OTODIK
+  pinMode(8, INPUT);  //HATODIK
+  //BUZZ
+  pinMode(30, OUTPUT); //BUZZER
+  pinMode(7, OUTPUT); //BUZZER
+  //PIR
+  pinMode(31, INPUT);
+  //digitalWrite(31, LOW);
+  //START
+  
+  Serial.println("Udv!");
+  Serial.println();
+  //NFC PN532 powerPIR
+  pinMode(32, OUTPUT);
+  digitalWrite(32, HIGH); //NFC PN532 ON
+    nfc.begin();
+    uint32_t versiondata = nfc.getFirmwareVersion();
+    if (! versiondata) {
+      Serial.print("Didn't find PN53x board");
+      while (1); // halt
+    }
+  // Got ok data, print it out!
+  Serial.print("Chip PN5"); Serial.println((versiondata>>24) & 0xFF, HEX); 
+  Serial.print("Firmware ver. "); Serial.print((versiondata>>16) & 0xFF, DEC); 
+  Serial.print('.'); Serial.println((versiondata>>8) & 0xFF, DEC);
+  //digitalWrite(32, LOW); //NFC PN532 OFF
+  //UZEMMOD
+ UZEMMOD ();
+  }
+
+void loop() {
+  // put your main code here, to run repeatedly:
+
+}
+//LED STATES VOIDS
+void readcardled()
+{
+  digitalWrite(22, digitalRead(22) ^ 1);
+  digitalWrite(23,!(digitalRead(22)));  
+} 
+void eepromwriteled()
+{  
+  digitalWrite(24,!(digitalRead(24)));
+} 
+void eepromreadled()
+{
+  digitalWrite(24, digitalRead(24) ^ 1);
+  digitalWrite(23,!(digitalRead(24)));   
+} 
+void eepromreadledstatus(){
+  digitalWrite(23, digitalRead(23) ^ 1);
+  digitalWrite(24, digitalRead(24) ^ 1);
+  }
+void POWERON(){
+  
+digitalWrite(25, digitalRead(25) ^ 1);
+digitalWrite(27, digitalRead(27) ^ 1);
+digitalWrite(26,!(digitalRead(25)));
+  }
+void fomenu(){
+  digitalWrite(23, digitalRead(23) ^ 1);
+  digitalWrite(24, digitalRead(24) ^ 1);
+  digitalWrite(22, digitalRead(22) ^ 1);
+  }
+void choice(){
+  digitalWrite(22, digitalRead(22) ^ 1);
+  digitalWrite(24, digitalRead(24) ^ 1);
+  }
+void SECTORREADOUTALLLEDS(){
+  digitalWrite(22, digitalRead(22) ^ 1);
+  digitalWrite(24, digitalRead(24) ^ 1);
+  digitalWrite(23,!(digitalRead(22)));   
+  }
+void ACCESCONTROLLEDS(){
+  digitalWrite(22, digitalRead(22) ^ 1);
+  digitalWrite(23, digitalRead(23) ^ 1);
+  digitalWrite(24, digitalRead(24) ^ 1);
+  digitalWrite(28, digitalRead(28) ^ 1);
+  
+  }
+void relay(){
+  //TCCR3B = TCCR3B & 0b11111000;
+  for (int i = 0; i<1; i++){
+  digitalWrite(29, HIGH);  //magnetic controller
+  digitalWrite(30, HIGH);  //Buzzer
+  delay(50);
+  digitalWrite(29, LOW);
+  digitalWrite(30, LOW);
+  delay(150);
+  digitalWrite(29, HIGH);
+  digitalWrite(30, HIGH);  //Buzzer
+  delay(1000);
+  digitalWrite(29, LOW);
+  digitalWrite(30, LOW);  //Buzzer
+  }
+  }
+  
+void kartyatanitas(){
+    //
+    //delay(1000);
+
+
+    Serial.println("Ha visszaszeretnel mennia a fomenube, akkor nyomd meg a 6-os gombot!");
+    Serial.println("Ha folytatni szeretned a kartyatanitas uzemmodot, akkor nyomd meg az elso gombot!");
+    
+    buzzbuttonconfirm();
+    
+    
+    while ((digitalRead(13) == LOW) && (digitalRead(8) == LOW));
+    
+    
+    
+      //buzzbutton();
+    do{
+      
+      while (digitalRead(13) == HIGH && digitalRead(8) == LOW){
+        buzzbutton();
+      Timer1.attachInterrupt(readcardled);
+      kartyadb = EEPROM.read(kartyadbeprom);     
+      Serial.print("Kerem a""(z) "); Serial.print(kartyadb); Serial.print(". taget. ");
+      nfc.SAMConfig();
+      Serial.println("Helyezd az ISO14443A kartyat az olvasohoz ...");
+      //Scan RFID UID
+      uint8_t success;
+      uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };
+      uint8_t uidLength;
+      success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength);
+      delay(1500);
+      //kartyadb = EEPROM.read(kartyadbeprom);
+      Serial.print ("A(z) "); Serial.print(kartyadb); Serial.print(". TAG/KARTYA UID:"); nfc.PrintHex(uid, uidLength);
+      Timer1.detachInterrupt();
+      digitalWrite(22, LOW);
+      digitalWrite(23, LOW);
+        if (uidLength == 4){
+        Serial.println("Ez egy Mifare Classic kartya 4 byte UID.");
+        Timer1.attachInterrupt(eepromwriteled);
+        //EEPROM WRITE SCANNED RFID UID
+        
+        eeAddress = EEPROM.read(eeAddresseeprom);
+        EEPROM.put(eeAddress, uid);
+        
+        
+        eepromcim = EEPROM.read(eepromcimeeprom);
+        
+        Serial.print("A uid-t mentettuk az EEPROM-ba a""(z) "); Serial.print(eeAddress); Serial.print(". bittol kezdve! ");
+        
+        eeAddress=eeAddress+5;
+        EEPROM.put(eeAddresseeprom,eeAddress);
+        
+        eepromcim=eepromcim+5;
+        EEPROM.write(eepromcimeeprom,eepromcim);
+        
+        delay(2000);      
+        Timer1.detachInterrupt();
+        digitalWrite(24, LOW);
+        digitalWrite(23, LOW);
+        
+        kartyadb++;
+        EEPROM.put(kartyadbeprom, kartyadb);
+        
+        
+        Timer1.attachInterrupt(choice);
+        Serial.println();
+        Serial.println();
+        Serial.println("A kovetkezo TAG/KARTYA felvetelehez kerlek nyomd meg az 1-es gombot!");
+        Serial.println("A fomenube valo visszajutashoz kerlek nyomd meg a 6-os gombot!");
+        //eeAddress = EEPROM.read(eeAddresseeprom);
+        
+        while ((digitalRead(13) == LOW) && (digitalRead(8) == LOW));
+        }
+        else if (uidLength == 7){
+         Serial.println("Ez egy Mifare Ultralight kartya 7 byte UID jelenleg nem támogatott!");
+         kartyatanitas();
+         Timer1.attachInterrupt(eepromwriteled);
+        //EEPROM WRITE SCANNED RFID UID
+        
+        EEPROM.put(eeAddress, uid);
+        eeAddress=eeAddress+8;
+        EEPROM.put(eeAddresseeprom,eeAddress);
+        Serial.print("A uid-t mentettuk az EEPROM-ba a""(z) "); Serial.print(eepromcim); Serial.print(". bittol kezdve! ");
+        eepromcim = eepromcim+8;
+        EEPROM.put(eepromcimeeprom,eepromcim);
+        delay(2000);      
+        Timer1.detachInterrupt();
+        digitalWrite(24, LOW);
+        digitalWrite(23, LOW);
+        kartyadb++; 
+        EEPROM.put(kartyadbeprom, kartyadb);
+        Timer1.attachInterrupt(choice);
+        Serial.println();
+        Serial.println();
+        Serial.println("A kovetkezo TAG/KARTYA felvetelehez kerlek nyomd meg az 1-es gombot!");
+        Serial.println("A fomenube valo visszajutashoz kerlek nyomd meg a 6-os gombot!");
+        
+        while ((digitalRead(13) == LOW) && (digitalRead(8) == LOW)); 
+          
+          
+          }
+         else if (uidLength > 7){
+          Serial.println("A KARTYA/TAG nem kompatibilis!");
+          
+          kartyatanitas();
+          }
+      }
+    }while (digitalRead(13) == HIGH);
+
+      buzzerback();
+      UZEMMOD();
+
+}
+
+void fbuzzer (){
+  int myEraser = 7;             // this is 111 in binary and is used as an eraser
+  TCCR4B &= ~myEraser;   // this operation (AND plus NOT),  set the three bits in TCCR2B to 0
+  int myPrescaler = 4;         // this could be a number in [1 , 6]. In this case, 3 corresponds in binary to 011.   
+  TCCR4B |= myPrescaler;  //this operation (OR), replaces the last three bits in TCCR2B with our new value 011
+  analogWrite(7, HIGH);
+  }
+void nbuzzer (){
+  int myEraser = 7;             // this is 111 in binary and is used as an eraser
+  TCCR4B &= ~myEraser;   // this operation (AND plus NOT),  set the three bits in TCCR2B to 0
+  int myPrescaler = 3;         // this could be a number in [1 , 6]. In this case, 3 corresponds in binary to 011.   
+  TCCR4B |= myPrescaler;  //this operation (OR), replaces the last three bits in TCCR2B with our new value 011
+  analogWrite(7, HIGH);
+  }
+void sbuzzer (){
+  int myEraser = 7;             // this is 111 in binary and is used as an eraser
+  TCCR4B &= ~myEraser;   // this operation (AND plus NOT),  set the three bits in TCCR2B to 0
+  int myPrescaler = 4;         // this could be a number in [1 , 6]. In this case, 3 corresponds in binary to 011.   
+  TCCR4B |= myPrescaler;  //this operation (OR), replaces the last three bits in TCCR2B with our new value 011
+  analogWrite(7, HIGH);
+  }
+void buzzeroff(){
+  analogWrite(7, LOW);
+  }
+void buzzbutton(){
+  digitalWrite(30, HIGH);
+  delay(50);
+  digitalWrite(30, LOW);
+  delay(50);
+    }
+void buzzbuttonconfirm(){
+  for (int i = 0; i < 4; i++){
+  digitalWrite(30, HIGH);
+  delay(50);
+  digitalWrite(30, LOW);
+  delay(50);
+  
+    }
+ //abcde = 1;
+}
+void buzzerback(){
+  digitalWrite(30, HIGH);
+  delay(50);
+  digitalWrite(30, LOW);
+  delay(50);
+  digitalWrite(30, HIGH);
+  delay(500);
+  digitalWrite(30, LOW);
+  delay(50);
+  }
+void buzzerpoweron(){
+  digitalWrite(30, HIGH);
+  delay(50);
+  digitalWrite(30, LOW);
+  delay(50);
+  }
+void UZEMMOD (){
+  buzzerpoweron();
+  nbuzzer(); 
+  digitalWrite(22, LOW);
+  digitalWrite(23, LOW);
+  digitalWrite(24, LOW);
+  digitalWrite(28, LOW);
+  Timer1.attachInterrupt(fomenu); 
+  Serial.println();      
+  Serial.println("Kerlek valassz uzemmodot!");
+  Serial.println("Kartyatanitasa 1-es gomb.");
+  Serial.println("Teljes EEPROM torlese 2-es gomb.");
+  Serial.println("EEPROM KIOLVASASA 3-as gomb.");
+  Serial.println("Belepteto uzemmod 4-es gomb.");
+  Serial.println("TAG/Kartya szektorainak kiolvasasa 5-os gomb.");
+  Serial.println();
+  delay(1000);
+  while ((digitalRead(13) == LOW) && (digitalRead(12) == LOW) && (digitalRead(11) == LOW) && (digitalRead(10) == LOW) && (digitalRead(9) == LOW) && (digitalRead(8) == LOW));
+  digitalWrite(22, LOW);
+  digitalWrite(23, LOW);
+  digitalWrite(24, LOW);
+  buzzeroff();
+  Timer1.detachInterrupt();
+    //Kartyatanitas 
+  if(digitalRead(13) == HIGH){
+    buzzbutton();
+    Timer1.attachInterrupt(readcardled);
+    Serial.println("Kartyatanitas AKTIVALVA!");
+    Serial.println("Ha visszaszeretnel mennia a fomenube, akkor nyomd meg a 6-os gombot!");
+    Serial.println("Ha folytatni szeretned a kartyatanitas uzemmodot, akkor nyomd meg az elso gombot!");
+    delay(1000);
+    while ((digitalRead(13) == LOW) && (digitalRead(8) == LOW));
+    if (digitalRead(13) == HIGH){
+    
+    kartyatanitas(); 
+    }
+    else if (digitalRead(8) == HIGH){
+      buzzerback();
+      UZEMMOD();
+      }
+    }
+    //EEPROM torles
+  else if (digitalRead(12) == HIGH){
+    buzzbutton();
+    Timer1.attachInterrupt(eepromwriteled);
+    Serial.println("Biztosan torolni szeretned a teljes EEPROM-ot?");
+    Serial.println("Ha igen, nyomd meg az 1-es gombot.");
+    Serial.println("Ha nem, nyomd meg a 6-os gombot.");
+    delay(1000);
+    while ((digitalRead(13) == LOW) && (digitalRead(8) == LOW));
+    if (digitalRead(13) == HIGH){
+    Serial.println();
+    Serial.println("Teljes EEPROM torlese AKTIVALVA!");
+    EEPROMDELETE();
+    }
+    else if (digitalRead(8) == HIGH){
+      buzzerback();
+      UZEMMOD();
+      }
+    }
+    //EEPROM kiolvasa
+  else if (digitalRead(11) == HIGH){
+    buzzbutton();
+    Timer1.attachInterrupt(eepromreadled);
+    Serial.println("EEPROM KIOLVASASA AKTIVALVA!");
+    Serial.println("Ha visszaszeretnel menni a fomenube, akkor nyomd meg a 6-os gombot!");
+    Serial.println("A folytatashoz nyomd meg az elso gombot!");
+    delay(1000);
+    while ((digitalRead(8) == LOW)&& (digitalRead(13) == LOW));
+    if (digitalRead (8) == HIGH){
+      buzzerback();
+      UZEMMOD();
+      }
+    else if (digitalRead(13) == HIGH){
+    EEPROMREADOUT();
+        }    
+    }
+    //ACCESSCONTROL
+  else if (digitalRead(10) == HIGH){
+    buzzbutton();
+    //Timer1.attachInterrupt(ACCESCONTROLLEDS);
+    Serial.println("Belepteto AKTIVALVA!");
+    Serial.println("Ha visszaszeretnel mennia a fomenube, akkor nyomd meg a 6-os gombot!");
+    Serial.println("Ha folytatni szeretned, akkor nyomd meg az elso gombot!");
+    delay(1000);
+    while ((digitalRead(13) == LOW) && (digitalRead(8) == LOW));
+    if (digitalRead(13) == HIGH){ 
+      buzzbuttonconfirm();
+      ACCESSCONTROL(); 
+    }
+    else if (digitalRead(8) == HIGH){
+      buzzerback();
+      UZEMMOD();
+      }   
+    }
+    //Adott kartya/tag szektorainak kiolvasasa
+  else if (digitalRead(9) == HIGH){
+    buzzbutton();
+    Timer1.attachInterrupt(SECTORREADOUTALLLEDS);
+    Serial.println("TAG/Kartya szektorainak kiolvasasa AKTIVALVA!");
+    Serial.println("Ha visszaszeretnel mennia a fomenube, akkor nyomd meg a 6-os gombot!");
+    Serial.println("Ha folytatni szeretned a kartyatanitas uzemmodot, akkor nyomd meg az elso gombot!");
+    delay(1000);
+    while ((digitalRead(13) == LOW) && (digitalRead(8) == LOW));
+    if (digitalRead(13) == HIGH){ 
+    SECTORREADOUTALL(); 
+    }
+    else if (digitalRead(8) == HIGH){
+    buzzerback();
+    UZEMMOD();
+      }   
+    }
+  }
+void EEPROMDELETE (){
+    buzzbuttonconfirm();
+    address = 0;
+    value = 0;
+  for (int i = 0; i < EEPROM.length(); i++){
+    EEPROM.write(i, value);
+    Serial.print(address, DEC);
+    Serial.print("\t");
+    Serial.println(value);
+    address = address + 1;
+    }
+    Serial.println("A teljes EEPROM torolve lett!");
+    kartyadb = 1;
+    EEPROM.write(kartyadbeprom, kartyadb);
+    //int eepromcim = EEPROM.read(eepromcimeeprom);
+  UZEMMOD();
+  }
+void tarolo(){
+  address = 0;
+    for (int i = 0; i<EEPROM.length(); i++){
+    value = EEPROM.read(address);
+    address = address + 1;
+      if (address == 0) {
+        address = address + 1;
+        value2 = EEPROM.read(address);
+        if (address == 0){
+          address = address + 1;
+          value3 = EEPROM.read(address);
+          if (address = 0){
+            ACCESSCONTROL();
+            }
+          }
+      } 
+    }
+  
+  
+  }
+void EEPROMREADOUT(){
+  buzzbuttonconfirm();
+  Timer1.attachInterrupt(eepromreadled);
+  Serial.println("Hany byte-ot olvassak ki?");
+  Serial.println("Ha az osszeset, akkor nyomd be a 4-es gombot!");
+  Serial.println("Ha az elso 4-et, akkor nyomd be a 1-es gombot!");
+  delay(1000);
+  while ((digitalRead(10) == LOW) && (digitalRead(13) == LOW) && (digitalRead(9) == LOW));
+  if (digitalRead(10) == HIGH){
+    address = 0;
+    for (int i = 0; i<EEPROM.length(); i++){
+    value = EEPROM.read(address);
+    Serial.print(address);
+    Serial.print("\t");
+    Serial.print(value, HEX);
+    Serial.println();
+    address = address + 1;
+      if (address == EEPROM.length()) {
+        address = 0;
+      }
+    
+    }
+  }
+  else if (digitalRead(13) == HIGH){
+    address = 0;
+    for (int i = 0; i<4; i++){
+    value = EEPROM.read(address);
+    Serial.print(address);
+    Serial.print("\t");
+    Serial.print(value, HEX);
+    Serial.println();
+    address = address + 1;
+      if (address == EEPROM.length()) {
+        address = 0;
+      }
+    delay(5);
+    }
+    }
+    Timer1.detachInterrupt();
+    digitalWrite(24, LOW);
+    digitalWrite(23, LOW);
+    Timer1.attachInterrupt(choice);
+    Serial.println("Fomenube valo visszalepeshez nyomd meg a 6-os gombot!");
+    while (digitalRead(8) == LOW);
+    delay(1000);
+    Timer1.detachInterrupt();
+    UZEMMOD();
+  }
+void ACCESSCONTROL(){
+  
+  digitalWrite(29, LOW);    //MAGNETIC CONTROLLER
+  digitalWrite(30, LOW);    //BUZZER
+  digitalWrite(32, LOW);    //RELAY PIR
+  digitalWrite(31, LOW);    //PIR
+  
+  Serial.println("A visszalepeshez nyomd meg az 6-os gombot!");
+  Serial.println("A folytatashoz nyomd meg az 1-es gombot");
+  delay(9000);
+  digitalWrite(31, LOW);
+  digitalRead(31);
+  
+  while (digitalRead(31) == LOW && digitalRead(8) == LOW);
+  
+  
+  if (digitalRead(31) == HIGH){
+  digitalWrite(33, HIGH);
+  Timer1.attachInterrupt(ACCESCONTROLLEDS);
+  digitalWrite(32, HIGH);         //NFC PN532 ON
+  digitalWrite(31, LOW);          //PIR OFF
+  delay(1000);
+  nfc.SAMConfig();
+  
+  Serial.println("Kerlek helyezd a TAG/KARTYAT az olvasohoz!");
+  uint8_t success;
+  uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
+  uint8_t uidLength; 
+  success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength);
+  int address = 0;
+  byte value;
+  int k = 0;
+  for (int i = 0; i<EEPROM.length(); i++){
+    //ANDROID NFC
+value = EEPROM.read(address);
+    if(value == uid[0]){
+      Serial.println();
+      Serial.println("|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||");
+      Serial.print("A UID "); Serial.print(k); Serial.print(". "); Serial.print("byte-ja benne van az EEPROM "); Serial.print(address);Serial.print(". "); Serial.print("cimeben!");
+      Serial.println();
+      Serial.println();
+      Serial.print(value, HEX); Serial.print("    EEPROM    "); Serial.print(address);Serial.print("    address");
+      Serial.println();
+      Serial.print(uid[k], HEX); Serial.print("    UID"); Serial.print(" A TAG/KARTYA "); Serial.print(k); Serial.print(". byte-ja.");
+      Serial.println();
+      Serial.println("|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||");
+      Serial.println();
+      relay();
+      digitalWrite(32, LOW);
+      //digitalWrite(31, LOW);
+      digitalWrite(33, LOW);
+      ACCESSCONTROL();
+      }
+      
+    //UID 1 byte
+  value = EEPROM.read(address);
+   if (value == uid[k]){
+    Serial.println();
+    Serial.println("|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||");
+    Serial.print("A UID "); Serial.print(k); Serial.print(". "); Serial.print("byte-ja benne van az EEPROM "); Serial.print(address);Serial.print(". "); Serial.print("cimeben!");
+    Serial.println();
+    Serial.println();
+    Serial.print(value, HEX); Serial.print("    EEPROM    "); Serial.print(address);Serial.print("    address");
+    Serial.println();
+    Serial.print(uid[k], HEX); Serial.print("    UID"); Serial.print(" A TAG/KARTYA "); Serial.print(k); Serial.print(". byte-ja.");
+    Serial.println();
+    Serial.println("|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||");
+    Serial.println();
+    k++;
+    address++;
+    //UID 2 byte
+    value = EEPROM.read(address);
+    if(value == uid[k]){
+      Serial.println();
+      Serial.println("|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||");
+      Serial.print("A UID "); Serial.print(k); Serial.print(". "); Serial.print("byte-ja benne van az EEPROM "); Serial.print(address);Serial.print(". "); Serial.print("cimeben!");
+      Serial.println();
+      Serial.println();
+      Serial.print(value, HEX); Serial.print("    EEPROM    "); Serial.print(address);Serial.print("    address");
+      Serial.println();
+      Serial.print(uid[k], HEX); Serial.print("    UID"); Serial.print(" A TAG/KARTYA "); Serial.print(k); Serial.print(". byte-ja.");
+      Serial.println();
+      Serial.println("|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||");
+      Serial.println();
+      k++;
+      address++;
+      //UID 3 byte
+      value = EEPROM.read(address);
+      if(value == uid[k]){
+        Serial.println();
+        Serial.println("|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||");
+        Serial.print("A UID "); Serial.print(k); Serial.print(". "); Serial.print("byte-ja benne van az EEPROM "); Serial.print(address);Serial.print(". "); Serial.print("cimeben!");
+        Serial.println();
+        Serial.println();
+        Serial.print(value, HEX); Serial.print("    EEPROM    "); Serial.print(address);Serial.print("    address");
+        Serial.println();
+        Serial.print(uid[k], HEX); Serial.print("    UID"); Serial.print(" A TAG/KARTYA "); Serial.print(k); Serial.print(". byte-ja.");
+        Serial.println();
+        Serial.println("|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||");
+        Serial.println();
+        k++;
+        address++;
+        //UID 4 byte
+        value = EEPROM.read(address);
+        if(value == uid[k]){
+          Serial.println();
+          Serial.println("|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||");
+          Serial.print("A UID "); Serial.print(k); Serial.print(". "); Serial.print("byte-ja benne van az EEPROM "); Serial.print(address);Serial.print(". "); Serial.print("cimeben!");
+          Serial.println();
+          Serial.println();
+          Serial.print(value, HEX); Serial.print("    EEPROM    "); Serial.print(address);Serial.print("    address");
+          Serial.println();
+          Serial.print(uid[k], HEX); Serial.print("    UID"); Serial.print(" A TAG/KARTYA "); Serial.print(k); Serial.print(". byte-ja.");
+          Serial.println();
+          Serial.println("|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||");
+          Serial.println();
+          k++;
+          address++;
+
+          //Ide johet a rele vezerlese!
+          relay();
+          digitalWrite(32, LOW);
+          digitalWrite(31, LOW);
+          digitalWrite(33, LOW);
+          ACCESSCONTROL();
+          
+          
+          }
+          if (value != uid[k]){
+          Serial.println();
+          Serial.print("A UID "); Serial.print(k); Serial.print(". "); Serial.print("byte-ja nincs benne az EEPROM ");Serial.print(address);Serial.print(". "); Serial.print("cimeben!");
+          
+          Serial.println();
+          Serial.println();
+          Serial.print(value, HEX); Serial.print("    EEPROM    "); Serial.print(address);Serial.print("    address");
+          Serial.println();
+          Serial.print(uid[k], HEX); Serial.print("    UID"); Serial.print(" A TAG/KARTYA "); Serial.print(k); Serial.print(". byte-ja.");            
+          k--;
+          }
+        }
+        if (value != uid[k]){
+        Serial.println();
+        Serial.print("A UID "); Serial.print(k); Serial.print(". "); Serial.print("byte-ja nincs benne az EEPROM ");Serial.print(address);Serial.print(". "); Serial.print("cimeben!");
+        
+        Serial.println();
+        Serial.println();
+        Serial.print(value, HEX); Serial.print("    EEPROM    "); Serial.print(address);Serial.print("    address");
+        Serial.println();
+        Serial.print(uid[k], HEX); Serial.print("    UID"); Serial.print(" A TAG/KARTYA "); Serial.print(k); Serial.print(". byte-ja.");   
+        k--;
+        }
+      }
+    if (value != uid[k]){
+      Serial.println();
+      Serial.print("A UID "); Serial.print(k); Serial.print(". "); Serial.print("byte-ja nincs benne az EEPROM ");Serial.print(address);Serial.print(". "); Serial.print("cimeben!");
+      Serial.println();
+      Serial.println();
+      Serial.print(value, HEX); Serial.print("    EEPROM    "); Serial.print(address);Serial.print("    address");
+      Serial.println();
+      Serial.print(uid[k], HEX); Serial.print("    UID"); Serial.print(" A TAG/KARTYA "); Serial.print(k); Serial.print(". byte-ja.");       
+      k--;
+      
+      }
+    }
+   else if ((value != uid[k]) || (value != uid[0])){
+    Serial.println();
+    Serial.print("A UID "); Serial.print(k); Serial.print(". "); Serial.print("byte-ja nincs benne az EEPROM ");Serial.print(address);Serial.print(". "); Serial.print("cimeben!");   
+    Serial.println();
+    Serial.println();
+    Serial.print(value, HEX); Serial.print("    EEPROM    "); Serial.print(address);Serial.print("    address");
+    Serial.println();
+    Serial.print(uid[k], HEX); Serial.print("    UID"); Serial.print(" A TAG/KARTYA "); Serial.print(k); Serial.print(". byte-ja.");  
+    address++;
+    }
+    Serial.println();
+    Serial.println("Nyomd meg az elso gombot!");
+    //delay(1000);
+    //while(digitalRead(13) == LOW);
+    //delay(1000);
+    //UZEMMOD();
+   }
+  
+  
+  //digitalWrite(28, LOW);
+  digitalWrite(32, LOW);
+  digitalWrite(31, LOW);
+  digitalWrite(33, LOW);
+  delay(9000);
+  ACCESSCONTROL();
+}
+
+else if (digitalRead(8) == HIGH){
+  buzzerback();
+  digitalWrite(32, LOW);
+  UZEMMOD();
+  }
+  }
+  
+void SECTORREADOUTALL(){
+  buzzbuttonconfirm();
+  Timer1.attachInterrupt(SECTORREADOUTALLLEDS);
+  Serial.println("Kerem a TAG/KARTYAT!");
+  Serial.println("Kerlek ne vedd el a TAG/KARTYAT!");
+  nfc.SAMConfig();
+  Serial.println("|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||");
+  for (int i = 0; i<64; i++){
+  uint8_t success;
+  uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
+  uint8_t uidLength; 
+  success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength);
+  
+  uint8_t keya[6] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
+  success = nfc.mifareclassic_AuthenticateBlock(uid, uidLength, i, 0, keya);
+  uint8_t data[16];
+  success = nfc.mifareclassic_ReadDataBlock(i, data);
+  
+  nfc.PrintHexChar(data, 16);
+ 
+  }
+  Timer1.detachInterrupt();
+  Serial.println("|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||");
+  Timer1.attachInterrupt(choice);
+  Serial.println("Ha masik TAG/KARTYAT szeretnel kiolvasni nyomd meg az 1-es gombot!");
+  Serial.println("A fomenube valo visszalepeshez nyomd meg a 6-os gombot!");
+  while ((digitalRead(13) == LOW) && (digitalRead(8) == LOW));
+  if (digitalRead(13) == HIGH){
+    SECTORREADOUTALL();
+    }
+  else if (digitalRead(8) == HIGH){
+    UZEMMOD();
+    Timer1.detachInterrupt();
+    }
+  }
+  
