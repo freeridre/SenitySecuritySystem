@@ -75,7 +75,6 @@ void EEPROMREADOUT(){
     }
     
   }
-  
   /*else if (digitalRead(13) == HIGH){
     address = 0;
     for (int i = 0; i<4; i++){
@@ -94,19 +93,44 @@ void EEPROMREADOUT(){
     Serial.println("A visszalepeshez nyomd meg a 6-os gombot!\n");
     //return;
     quit();
-    
-  
-  
-    
-  
-    
   }
-
-
-
-
-
-
+void EEPROMDELETE()
+{
+  address = 0;
+  value = 0;
+  for (int i = 0; i < EEPROM.length(); i++)
+  {
+    EEPROM.write(i, value);
+    Serial.print(address, DEC);
+    Serial.print("\t");
+    Serial.println(value);
+    address = address + 1;
+  }
+    Serial.println("A teljes EEPROM torolve lett!");
+    kartyadb = 1;
+    EEPROM.write(kartyadbeeprom, kartyadb);
+    //int eepromcim = EEPROM.read(eepromcimeeprom);
+  quit();
+}
+void EEPROMREADOUTALL(){
+  Serial.println("EEPROM READ OUT ALL ONLY REGISTERED CARDS!\n");
+  address = 0;
+  for (int i = 0; i<EEPROM.length(); i++)
+  {
+    value = EEPROM.read(address);
+    Serial.print(address);
+    Serial.print("\t");
+    Serial.print(value, HEX);
+    Serial.println("\n");
+    address = address + 1;
+    if (address == EEPROM.length())
+    {
+      address = 0;
+    }
+  }
+    Serial.println("A visszalepeshez nyomd meg a 6-os gombot!\n");
+    quit();
+  }
 //Start NFC Init
 void NFCINITIALIZE ()
 {
@@ -272,6 +296,8 @@ void setup() {
   NFCINITIALIZE ();
   Serial.println("1 - CardLearning \n");
   Serial.println("2 - CardListing \n");
+  Serial.println("3 - EEPROM Delet \n");
+  Serial.println("4 - EEPROM Read Out All \n");
   
 }
 
@@ -289,6 +315,16 @@ void loop() {
     {
       EEPROMREADOUT();
     }
+    else if(input_a == 3)
+    {
+      EEPROMREADOUT();
+    }
+    else if(input_a == 4)
+    {
+      EEPROMREADOUTALL();
+    }
+    
+    
   }
   //CardLearning();
 }
