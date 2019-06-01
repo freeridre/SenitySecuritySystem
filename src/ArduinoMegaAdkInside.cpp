@@ -36,33 +36,55 @@ byte value2;
 byte value3;
 byte valuekartyadb;
 int carddb = 0;
-//quit
 bool Exit = Serial.available();
+int back = 1;
 
 void quit()
 {
   while (1)
   {
     input_a = Serial.read();
-      if (input_a == 6)
-      {
-        Serial.println("||||||||||||||||||||||");
-        Serial.println("1 - CardLearning \n");
-        Serial.println("2 - CardListing");
-        Serial.println("||||||||||||||||||||||\n");
-        return;
-        loop();
-      }
+    if (input_a == 6)
+    {
+      Serial.println("||||||||||||||||||||||");
+      Serial.println("1 - Card Learning \n");
+      Serial.println("2 - Card Listing \n");
+      Serial.println("3 - EEPROM Delete \n");
+      Serial.println("4 - EEPROM Read Out All");
+      Serial.println("||||||||||||||||||||||\n");
+      loop();
+      return;
+    }
+    return;
   }
-
+  return;
 }
-
-void EEPROMREADOUT(){
-  valuekartyadb = EEPROM.read(kartyadbeeprom);
+void quit_infinity()
+{
+  while (1)
+  {
+    input_a = Serial.read();
+    if (input_a == 6)
+    {
+      Serial.println("||||||||||||||||||||||");
+      Serial.println("1 - Card Learning \n");
+      Serial.println("2 - Card Listing \n");
+      Serial.println("3 - EEPROM Delete \n");
+      Serial.println("4 - EEPROM Read Out All");
+      Serial.println("||||||||||||||||||||||\n");
+      return;
+      loop();
+    }
+  }
+}
+void CardReadOut(){
   Serial.println("EEPROM READ OUT ALL ONLY REGISTERED CARDS!\n");
+  valuekartyadb = EEPROM.read(kartyadbeeprom);
   address = 0;
   for (int i = 0; i<valuekartyadb; i++)
   {
+    valuekartyadb = EEPROM.read(kartyadbeeprom);
+    address = 0;
     value = EEPROM.read(address);
     Serial.print(address);
     Serial.print("\t");
@@ -91,8 +113,6 @@ void EEPROMREADOUT(){
     }
     }*/
     Serial.println("A visszalepeshez nyomd meg a 6-os gombot!\n");
-    //return;
-    quit();
   }
 void EEPROMDELETE()
 {
@@ -100,6 +120,7 @@ void EEPROMDELETE()
   value = 0;
   for (int i = 0; i < EEPROM.length(); i++)
   {
+    
     EEPROM.write(i, value);
     Serial.print(address, DEC);
     Serial.print("\t");
@@ -110,10 +131,9 @@ void EEPROMDELETE()
     kartyadb = 1;
     EEPROM.write(kartyadbeeprom, kartyadb);
     //int eepromcim = EEPROM.read(eepromcimeeprom);
-  quit();
 }
 void EEPROMREADOUTALL(){
-  Serial.println("EEPROM READ OUT ALL ONLY REGISTERED CARDS!\n");
+  Serial.println("EEPROM READ OUT ALL!\n");
   address = 0;
   for (int i = 0; i<EEPROM.length(); i++)
   {
@@ -128,8 +148,8 @@ void EEPROMREADOUTALL(){
       address = 0;
     }
   }
-    Serial.println("A visszalepeshez nyomd meg a 6-os gombot!\n");
     quit();
+    Serial.println("A visszalepeshez nyomd meg a 6-os gombot!\n");
   }
 //Start NFC Init
 void NFCINITIALIZE ()
@@ -167,13 +187,7 @@ void CardLearning()
     Serial.println("Helyezd az ISO14443A kartyat az olvasohoz ...");
     Serial.println("A visszalepeshez nyomd meg a 6-os gombot!\n");
     //Scan RFID UID
-    while (1)
-    {
-      quit();
-      return;
-      success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength, Timeout);
-      
-    }
+    success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength, Timeout);
     Serial.println("A taget/kartyat beolvastuk! \n");
     //delay(1500);
     //kartyadb = EEPROM.read(kartyadbeprom);
@@ -294,16 +308,20 @@ void setup() {
   Serial.println("Welcome!");
   //NFC Module Init
   NFCINITIALIZE ();
-  Serial.println("1 - CardLearning \n");
-  Serial.println("2 - CardListing \n");
-  Serial.println("3 - EEPROM Delet \n");
-  Serial.println("4 - EEPROM Read Out All \n");
+  Serial.println("||||||||||||||||||||||");
+  Serial.println("1 - Card Learning \n");
+  Serial.println("2 - Card Listing \n");
+  Serial.println("3 - EEPROM Delete \n");
+  Serial.println("4 - EEPROM Read Out All");
+  Serial.println("||||||||||||||||||||||\n");
   
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
   //Card Learning
+  Serial.println(".");
+  delay(1000);
   while (Serial.available() > 0)
   {
     input_a = Serial.read();
@@ -313,18 +331,16 @@ void loop() {
     }
     else if(input_a == 2)
     {
-      EEPROMREADOUT();
+      CardReadOut();
     }
     else if(input_a == 3)
     {
-      EEPROMREADOUT();
+      EEPROMDELETE();
     }
     else if(input_a == 4)
     {
       EEPROMREADOUTALL();
     }
-    
-    
   }
   //CardLearning();
 }
