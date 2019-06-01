@@ -79,17 +79,16 @@ void quit_infinity()
 }
 void CardReadOut(){
   Serial.println("EEPROM READ OUT ALL ONLY REGISTERED CARDS!\n");
-  valuekartyadb = EEPROM.read(kartyadbeeprom);
+  int a_valuekartyadb = EEPROM.read(kartyadbeeprom) -1;
+  valuekartyadb = a_valuekartyadb*5; 
   address = 0;
   for (int i = 0; i<valuekartyadb; i++)
   {
-    valuekartyadb = EEPROM.read(kartyadbeeprom);
-    address = 0;
     value = EEPROM.read(address);
     Serial.print(address);
     Serial.print("\t");
     Serial.print(value, HEX);
-    Serial.println("\n");
+    Serial.println("\t");
     address = address + 1;
     if (address == valuekartyadb)
     {
@@ -148,7 +147,7 @@ void EEPROMREADOUTALL(){
       address = 0;
     }
   }
-    quit();
+    //quit();
     Serial.println("A visszalepeshez nyomd meg a 6-os gombot!\n");
   }
 //Start NFC Init
@@ -239,7 +238,6 @@ void CardLearning()
         
       }
       address++;
-      
     }
 
 
@@ -299,7 +297,71 @@ void CardLearning()
   }
   while (digitalRead(13) == HIGH);
 }
+void RelayBuzzer()
+{
 
+}
+void AccessControl()
+{
+ do
+ {
+    nfc.SAMConfig();
+    //kártyadb bekerese EEPROMbol, illetve kartya kerese
+    kartyadb = EEPROM.read(kartyadbeeprom);
+    Serial.println("-------------------------------------------------------------------------------");
+    Serial.print("Kerem a "); Serial.print("taget/kartyat. \n");
+    Serial.println("Helyezd az ISO14443A kartyat az olvasohoz ...");
+    //Scan RFID UID
+    success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength, Timeout);
+    Serial.println("A taget/kartyat beolvastuk! \n");
+    //Leellenorizzuk, hogy mar fel van-e veve ez a UID
+    byte value;
+    int ID = 0;
+    carddb = kartyadb * uidLength;
+    address = 0;
+    for (int i = 0; i < carddb; i++)
+    {
+      value = EEPROM.read(address);
+      if(value == uid[ID])
+      {
+        /*Serial.println("||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| \n");
+        Serial.print("A UID "); Serial.print(ID); Serial.print(". "); Serial.print("byte-ja benne van az EEPROM "); Serial.print(address);Serial.print(". "); Serial.print("cimeben! \n");*/
+        ID++, address++;
+        //Serial.println("Find the"); Serial.print(ID); Serial.print(" byte.");
+        value = EEPROM.read(address);
+        if(value == uid[ID])
+        {
+          /*Serial.println("||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| \n");
+          Serial.print("A UID "); Serial.print(ID); Serial.print(". "); Serial.print("byte-ja benne van az EEPROM "); Serial.print(address);Serial.print(". "); Serial.print("cimeben! \n");*/
+          ID++, address++;
+          value = EEPROM.read(address);
+          if(value == uid[ID])
+          {
+            /*Serial.println("||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| \n");
+            Serial.print("A UID "); Serial.print(ID); Serial.print(". "); Serial.print("byte-ja benne van az EEPROM "); Serial.print(address);Serial.print(". "); Serial.print("cimeben! \n");*/
+            ID++, address++;
+            value = EEPROM.read(address);
+            if(value == uid[ID])
+            {
+              /*Serial.println("||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| \n");
+              Serial.print("A UID "); Serial.print(ID); Serial.print(". "); Serial.print("byte-ja benne van az EEPROM "); Serial.print(address);Serial.print(". "); Serial.print("cimeben! \n");*/
+              ID++, address++;
+              value = EEPROM.read(address);
+              Serial.println("Passed!");
+              RelayBuzzer();
+              AccessControl();
+            }
+            address++;
+          }
+          address++;
+        }
+        address++;
+      }
+      address++;
+    }
+    Serial.println("Nem jogosult!");
+  }while (10 != 11);
+}
 void setup() {
   // put your setup code here, to run once:
   //Serial0 start
@@ -312,16 +374,15 @@ void setup() {
   Serial.println("1 - Card Learning \n");
   Serial.println("2 - Card Listing \n");
   Serial.println("3 - EEPROM Delete \n");
-  Serial.println("4 - EEPROM Read Out All");
+  Serial.println("4 - EEPROM Read Out All \n");
+  Serial.println("5 - Access Control");
   Serial.println("||||||||||||||||||||||\n");
-  
 }
-
 void loop() {
   // put your main code here, to run repeatedly:
   //Card Learning
-  Serial.println(".");
-  delay(1000);
+  /*Serial.println(".");
+  delay(1000);*/
   while (Serial.available() > 0)
   {
     input_a = Serial.read();
@@ -341,6 +402,11 @@ void loop() {
     {
       EEPROMREADOUTALL();
     }
+    else if(input_a == 5)
+    {
+      AccessControl();
+    }
+
   }
   //CardLearning();
 }
