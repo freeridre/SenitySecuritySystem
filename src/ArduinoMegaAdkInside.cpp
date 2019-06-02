@@ -77,7 +77,8 @@ void quit_infinity()
     }
   }
 }
-void CardReadOut(){
+void CardReadOut()
+{
   Serial.println("EEPROM READ OUT ALL ONLY REGISTERED CARDS!\n");
   int a_valuekartyadb = EEPROM.read(kartyadbeeprom) -1;
   valuekartyadb = a_valuekartyadb*5; 
@@ -94,7 +95,6 @@ void CardReadOut(){
     {
       address = 0;
     }
-    
   }
   /*else if (digitalRead(13) == HIGH){
     address = 0;
@@ -112,7 +112,7 @@ void CardReadOut(){
     }
     }*/
     Serial.println("A visszalepeshez nyomd meg a 6-os gombot!\n");
-  }
+}
 void EEPROMDELETE()
 {
   address = 0;
@@ -131,7 +131,8 @@ void EEPROMDELETE()
     EEPROM.write(kartyadbeeprom, kartyadb);
     //int eepromcim = EEPROM.read(eepromcimeeprom);
 }
-void EEPROMREADOUTALL(){
+void EEPROMREADOUTALL()
+{
   Serial.println("EEPROM READ OUT ALL!\n");
   address = 0;
   for (int i = 0; i<EEPROM.length(); i++)
@@ -146,10 +147,11 @@ void EEPROMREADOUTALL(){
     {
       address = 0;
     }
-  }
+  
     //quit();
     Serial.println("A visszalepeshez nyomd meg a 6-os gombot!\n");
   }
+}
 //Start NFC Init
 void NFCINITIALIZE ()
 {
@@ -171,7 +173,6 @@ void NFCINITIALIZE ()
  Serial.print("Firmware ver. "); Serial.print((versiondata>>16) & 0xFF, DEC); 
  Serial.print('.'); Serial.println((versiondata>>8) & 0xFF, DEC);
  Serial.print("\n");
- 
 }
 //Kartyatanitas EEPROM
 void CardLearning()
@@ -378,7 +379,8 @@ void setup() {
   Serial.println("5 - Access Control");
   Serial.println("||||||||||||||||||||||\n");
 }
-void loop() {
+void loop()
+{
   // put your main code here, to run repeatedly:
   //Card Learning
   /*Serial.println(".");
@@ -406,7 +408,5 @@ void loop() {
     {
       AccessControl();
     }
-
   }
-  //CardLearning();
 }
