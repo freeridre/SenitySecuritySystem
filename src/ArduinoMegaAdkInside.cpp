@@ -26,6 +26,9 @@ uint8_t success;
 uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };
 uint8_t uidLength;
 uint8_t Timeout = 0;
+boolean checknfc;
+//LoRa
+uint8_t byteFromESP32 [12] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 //const int eeAddress;
 //User Serial Input
 int input_a = 0;
@@ -40,6 +43,38 @@ bool Exit = Serial.available();
 int back = 1;
 //menu Loop()
 int main_menu = 1;
+
+void readfromoutsideLoRa()
+{
+  
+  char i = 0;
+  
+  while (Serial1.available() > 0)
+  {
+    
+    byteFromESP32[i] = Serial1.read();     
+    Serial.print(byteFromESP32[i], HEX);
+    i += 1;
+    
+    
+    //Serial.println(byteFromESP32[0].charAt(5));
+    //Serial.println(byteFromESP32[6], HEX);
+    }
+    
+    
+   if(i != 0)
+   {
+       Serial.print('\n');
+       Serial.print("Bytes received: ");
+       Serial.print(i, DEC);
+       Serial.print('\n');
+       for (i = 0; i < sizeof(byteFromESP32); i++ ){
+       Serial.print(byteFromESP32[i], HEX);
+       
+       }
+       Serial.print('\n');
+    }
+  }
 void CardReadOut()
 {
   Serial.println("EEPROM READ OUT ALL ONLY REGISTERED CARDS!\n");
@@ -397,6 +432,8 @@ void setup() {
   // put your setup code here, to run once:
   //Serial0 start
   Serial.begin(115200);
+  //Serial1 start
+  Serial1.begin(115200);
   //Welcome
   Serial.println("Welcome!");
   //NFC Module Init
