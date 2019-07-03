@@ -38,6 +38,8 @@ byte valuekartyadb;
 int carddb = 0;
 bool Exit = Serial.available();
 int back = 1;
+//menu Loop()
+int main_menu = 1;
 
 void quit()
 {
@@ -112,6 +114,19 @@ void CardReadOut()
     }
     }*/
     Serial.println("A visszalepeshez nyomd meg a 6-os gombot!\n");
+    input_a = Serial.read();
+    if (input_a == 6)
+    {
+      main_menu = 1;
+      Serial.println("||||||||||||||||||||||");
+      Serial.println("1 - Card Learning \n");
+      Serial.println("2 - Card Listing \n");
+      Serial.println("3 - EEPROM Delete \n");
+      Serial.println("4 - EEPROM Read Out All \n");
+      Serial.println("5 - Access Control");
+      Serial.println("||||||||||||||||||||||\n");
+      return 0;
+    }
 }
 void EEPROMDELETE()
 {
@@ -130,6 +145,15 @@ void EEPROMDELETE()
     kartyadb = 1;
     EEPROM.write(kartyadbeeprom, kartyadb);
     //int eepromcim = EEPROM.read(eepromcimeeprom);
+    main_menu = 1;
+    Serial.println("||||||||||||||||||||||");
+    Serial.println("1 - Card Learning \n");
+    Serial.println("2 - Card Listing \n");
+    Serial.println("3 - EEPROM Delete \n");
+    Serial.println("4 - EEPROM Read Out All \n");
+    Serial.println("5 - Access Control");
+    Serial.println("||||||||||||||||||||||\n");
+    return;
 }
 void EEPROMREADOUTALL()
 {
@@ -150,6 +174,19 @@ void EEPROMREADOUTALL()
   
     //quit();
     Serial.println("A visszalepeshez nyomd meg a 6-os gombot!\n");
+    input_a = Serial.read();
+    if (input_a == 6)
+    {
+      main_menu = 1;
+      Serial.println("||||||||||||||||||||||");
+      Serial.println("1 - Card Learning \n");
+      Serial.println("2 - Card Listing \n");
+      Serial.println("3 - EEPROM Delete \n");
+      Serial.println("4 - EEPROM Read Out All \n");
+      Serial.println("5 - Access Control");
+      Serial.println("||||||||||||||||||||||\n");
+      return;
+    }
   }
 }
 //Start NFC Init
@@ -185,9 +222,30 @@ void CardLearning()
     Serial.println("-------------------------------------------------------------------------------");
     Serial.print("Kerem a""(z) "); Serial.print(kartyadb); Serial.print(". taget/kartyat. \n");
     Serial.println("Helyezd az ISO14443A kartyat az olvasohoz ...");
-    Serial.println("A visszalepeshez nyomd meg a 6-os gombot!\n");
+    Serial.println("A tovabb lepeshez nyomd meg barmelyik gombot (1,2,3,4,5), a visszalepeshez nyomd meg a 6-os gombot!\n");
+    while (input_a != 7)
+    {
+      input_a = Serial.read();
+        if (input_a == 6)
+        {
+          main_menu == 1;
+          Serial.println("||||||||||||||||||||||");
+          Serial.println("1 - Card Learning \n");
+          Serial.println("2 - Card Listing \n");
+          Serial.println("3 - EEPROM Delete \n");
+          Serial.println("4 - EEPROM Read Out All \n");
+          Serial.println("5 - Access Control");
+          Serial.println("||||||||||||||||||||||\n");
+          return;
+        }
+        else if ((input_a == 1) || (input_a == 2) || (input_a == 3) ||(input_a == 4) || (input_a == 5))
+        {
+        break;
+        }
+    }
     //Scan RFID UID
     success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength, Timeout);
+    
     Serial.println("A taget/kartyat beolvastuk! \n");
     //delay(1500);
     //kartyadb = EEPROM.read(kartyadbeprom);
@@ -371,6 +429,7 @@ void setup() {
   Serial.println("Welcome!");
   //NFC Module Init
   NFCINITIALIZE ();
+  /*
   Serial.println("||||||||||||||||||||||");
   Serial.println("1 - Card Learning \n");
   Serial.println("2 - Card Listing \n");
@@ -378,6 +437,7 @@ void setup() {
   Serial.println("4 - EEPROM Read Out All \n");
   Serial.println("5 - Access Control");
   Serial.println("||||||||||||||||||||||\n");
+  */
 }
 void loop()
 {
@@ -385,7 +445,18 @@ void loop()
   //Card Learning
   /*Serial.println(".");
   delay(1000);*/
-  while (Serial.available() > 0)
+  if (main_menu == 1)
+  {
+  Serial.println("||||||||||||||||||||||");
+  Serial.println("1 - Card Learning \n");
+  Serial.println("2 - Card Listing \n");
+  Serial.println("3 - EEPROM Delete \n");
+  Serial.println("4 - EEPROM Read Out All \n");
+  Serial.println("5 - Access Control");
+  Serial.println("||||||||||||||||||||||\n");
+  main_menu = 0;
+  }
+while (Serial.available() > 0)
   {
     input_a = Serial.read();
     if (input_a == 1)
