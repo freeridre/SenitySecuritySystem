@@ -40,45 +40,6 @@ bool Exit = Serial.available();
 int back = 1;
 //menu Loop()
 int main_menu = 1;
-
-void quit()
-{
-  while (1)
-  {
-    input_a = Serial.read();
-    if (input_a == 6)
-    {
-      Serial.println("||||||||||||||||||||||");
-      Serial.println("1 - Card Learning \n");
-      Serial.println("2 - Card Listing \n");
-      Serial.println("3 - EEPROM Delete \n");
-      Serial.println("4 - EEPROM Read Out All");
-      Serial.println("||||||||||||||||||||||\n");
-      loop();
-      return;
-    }
-    return;
-  }
-  return;
-}
-void quit_infinity()
-{
-  while (1)
-  {
-    input_a = Serial.read();
-    if (input_a == 6)
-    {
-      Serial.println("||||||||||||||||||||||");
-      Serial.println("1 - Card Learning \n");
-      Serial.println("2 - Card Listing \n");
-      Serial.println("3 - EEPROM Delete \n");
-      Serial.println("4 - EEPROM Read Out All");
-      Serial.println("||||||||||||||||||||||\n");
-      return;
-      loop();
-    }
-  }
-}
 void CardReadOut()
 {
   Serial.println("EEPROM READ OUT ALL ONLY REGISTERED CARDS!\n");
@@ -114,18 +75,22 @@ void CardReadOut()
     }
     }*/
     Serial.println("A visszalepeshez nyomd meg a 6-os gombot!\n");
-    input_a = Serial.read();
-    if (input_a == 6)
+   while (6 != 7)
     {
-      main_menu = 1;
-      Serial.println("||||||||||||||||||||||");
-      Serial.println("1 - Card Learning \n");
-      Serial.println("2 - Card Listing \n");
-      Serial.println("3 - EEPROM Delete \n");
-      Serial.println("4 - EEPROM Read Out All \n");
-      Serial.println("5 - Access Control");
-      Serial.println("||||||||||||||||||||||\n");
-      return 0;
+      input_a = Serial.read();
+        if (input_a == 6)
+        {
+          main_menu == 1;
+          Serial.println("||||||||||||||||||||||");
+          Serial.println("1 - Card Learning \n");
+          Serial.println("2 - Card Listing \n");
+          Serial.println("3 - EEPROM Delete \n");
+          Serial.println("4 - EEPROM Read Out All \n");
+          Serial.println("5 - Access Control");
+          Serial.println("||||||||||||||||||||||\n");
+          loop();
+          return;
+        }
     }
 }
 void EEPROMDELETE()
@@ -171,23 +136,26 @@ void EEPROMREADOUTALL()
     {
       address = 0;
     }
-  
-    //quit();
-    Serial.println("A visszalepeshez nyomd meg a 6-os gombot!\n");
-    input_a = Serial.read();
-    if (input_a == 6)
-    {
-      main_menu = 1;
-      Serial.println("||||||||||||||||||||||");
-      Serial.println("1 - Card Learning \n");
-      Serial.println("2 - Card Listing \n");
-      Serial.println("3 - EEPROM Delete \n");
-      Serial.println("4 - EEPROM Read Out All \n");
-      Serial.println("5 - Access Control");
-      Serial.println("||||||||||||||||||||||\n");
-      return;
-    }
   }
+  //quit
+  Serial.println("A visszalepeshez nyomd meg a 6-os gombot!\n");
+   while (6 != 7)
+    {
+      input_a = Serial.read();
+        if (input_a == 6)
+        {
+          main_menu == 1;
+          Serial.println("||||||||||||||||||||||");
+          Serial.println("1 - Card Learning \n");
+          Serial.println("2 - Card Listing \n");
+          Serial.println("3 - EEPROM Delete \n");
+          Serial.println("4 - EEPROM Read Out All \n");
+          Serial.println("5 - Access Control");
+          Serial.println("||||||||||||||||||||||\n");
+          loop();
+          return;
+        }
+    }
 }
 //Start NFC Init
 void NFCINITIALIZE ()
@@ -223,6 +191,7 @@ void CardLearning()
     Serial.print("Kerem a""(z) "); Serial.print(kartyadb); Serial.print(". taget/kartyat. \n");
     Serial.println("Helyezd az ISO14443A kartyat az olvasohoz ...");
     Serial.println("A tovabb lepeshez nyomd meg barmelyik gombot (1,2,3,4,5), a visszalepeshez nyomd meg a 6-os gombot!\n");
+    //quit
     while (input_a != 7)
     {
       input_a = Serial.read();
@@ -236,6 +205,7 @@ void CardLearning()
           Serial.println("4 - EEPROM Read Out All \n");
           Serial.println("5 - Access Control");
           Serial.println("||||||||||||||||||||||\n");
+          loop();
           return;
         }
         else if ((input_a == 1) || (input_a == 2) || (input_a == 3) ||(input_a == 4) || (input_a == 5))
@@ -243,6 +213,7 @@ void CardLearning()
         break;
         }
     }
+    Serial.println("Helyezd az ISO14443A kartyat az olvasohoz ...");
     //Scan RFID UID
     success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength, Timeout);
     
@@ -286,6 +257,7 @@ void CardLearning()
               Serial.println("Ez a kartya/tag mar fel lett veve! Kerlek valasz egy masikat!");
               delay(5000);
               CardLearning();
+              return;
             }
             address++;
             
@@ -456,6 +428,7 @@ void loop()
   Serial.println("||||||||||||||||||||||\n");
   main_menu = 0;
   }
+  input_a = 0;
 while (Serial.available() > 0)
   {
     input_a = Serial.read();
