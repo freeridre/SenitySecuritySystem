@@ -1,4 +1,9 @@
 //ARDUINO INSIDE
+//COMS
+//Arduino Outside COM7
+//Arduino Inside COM5
+//LORA Outside COM
+//LORA Inside COM21
 //Include libraries
 #include "arduino.h"
 #include "Wire.h"
@@ -333,7 +338,16 @@ void CardLearning()
 }
 void RelayBuzzer()
 {
-
+analogWrite(4, HIGH);
+Serial.println("||||||||||||||||||||||");
+Serial.println("1 - Card Learning \n");
+Serial.println("2 - Card Listing \n");
+Serial.println("3 - EEPROM Delete \n");
+Serial.println("4 - EEPROM Read Out All \n");
+Serial.println("5 - Access Control");
+Serial.println("||||||||||||||||||||||\n");
+loop();
+return;
 }
 void AccessControl()
 {
@@ -384,11 +398,16 @@ void AccessControl()
               Serial.print("A UID "); Serial.print(ID); Serial.print(". "); Serial.print("byte-ja benne van az EEPROM "); Serial.print(address);Serial.print(". "); Serial.print("cimeben! \n");*/
               ID++, address++;
               value = EEPROM.read(address);
-              Serial.println("Passed!");
+              Serial.println("Passed! \n");
               //Itt van a hiba!!
-              RelayBuzzer();
-              uidLength = 0;
+              //RelayBuzzer();
+              digitalWrite(36, HIGH);
+              delay(100);
+              digitalWrite(36, LOW);
+              //delay(2000);
+              Serial.println("Waiting for incoming data...");
               return;
+              //Serial.println("STOP!");
             }
             address++;
           }
@@ -398,15 +417,32 @@ void AccessControl()
       }
       address++;
     }
-    Serial.println("Nem jogosult!");
+    Serial.println("Nem jogosult! \n");
+    //delay(2000);
+    Serial.println("Waiting for incoming data...");
+    return;
   }while (10 != 11);
 }
 void readfromoutsideLoRa()
 {
-  //Serial.println("Waiting for incoming data");
-  char i = 0;
   //while(1 != 0)
   //{
+  //do
+  //{
+    input_a = Serial.read();
+    if (input_a == 6)
+    {
+      Serial.println("||||||||||||||||||||||");
+      Serial.println("1 - Card Learning \n");
+      Serial.println("2 - Card Listing \n");
+      Serial.println("3 - EEPROM Delete \n");
+      Serial.println("4 - EEPROM Read Out All \n");
+      Serial.println("5 - Access Control");
+      Serial.println("||||||||||||||||||||||\n");
+      loop();
+      return;
+    }
+    char i = 0;
     while (Serial1.available() > 0)
     {
       
@@ -422,6 +458,7 @@ void readfromoutsideLoRa()
         Serial.print('\n');
         Serial.print('\n');
       int x = 2;
+      uidLength = 0;
       for (x; x < 8; x++)
       {
       uint8_t uid_lenght = byteFromESP32[x];
@@ -430,11 +467,11 @@ void readfromoutsideLoRa()
           uidLength++;
         }
       }
-      Serial.println(uidLength);
+      Serial.print("UID Lenght: "); Serial.println(uidLength);
       AccessControl();
     }
-    
-  //readfromoutsideLoRa();
+  //}while(1 > 0);
+  readfromoutsideLoRa();
 }
 void setup() {
   // put your setup code here, to run once:
@@ -442,6 +479,9 @@ void setup() {
   Serial.begin(115200);
   //Serial1 start
   Serial1.begin(115200);
+  //magnes
+  pinMode(36, OUTPUT);
+  pinMode(4, OUTPUT);
   //Welcome
   Serial.println("Welcome!");
   //NFC Module Init
@@ -495,6 +535,7 @@ while (Serial.available() > 0)
     }
     else if(input_a == 5)
     {
+      Serial.println("Waiting for incoming data...");
       readfromoutsideLoRa();
       //AccessControl();
     }
