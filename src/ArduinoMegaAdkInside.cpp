@@ -48,6 +48,7 @@ bool Exit = Serial.available();
 int back = 1;
 //menu Loop()
 int main_menu = 1;
+void readfromoutsideLoRa();
 void CardReadOut()
 {
   Serial.println("EEPROM READ OUT ALL ONLY REGISTERED CARDS!\n");
@@ -406,6 +407,7 @@ void AccessControl()
               digitalWrite(36, LOW);
               //delay(2000);
               Serial.println("Waiting for incoming data...");
+              //readfromoutsideLoRa();
               return;
               //Serial.println("STOP!");
             }
@@ -425,10 +427,12 @@ void AccessControl()
 }
 void readfromoutsideLoRa()
 {
+  //Serial.println("Varok...");
   //while(1 != 0)
   //{
   //do
   //{
+    //Serial.println("IT");
     input_a = Serial.read();
     if (input_a == 6)
     {
@@ -443,13 +447,18 @@ void readfromoutsideLoRa()
       return;
     }
     char i = 0;
-    while (Serial1.available() > 0)
+    //Serial.print("UID Lenght: "); Serial.println(uidLength);
+    while(Serial1.available() > 0)
+    //while (Serial1.available() > 0)
     {
-      
+      //Orange Led shows serial communication progress
+      digitalWrite(35, HIGH);
       byteFromESP32[i] = Serial1.read();     
       Serial.print(byteFromESP32[i], HEX);
       i += 1;
     }
+    digitalWrite(35, LOW);
+    
     if(i != 0)
     {
         Serial.print('\n');
@@ -468,10 +477,12 @@ void readfromoutsideLoRa()
         }
       }
       Serial.print("UID Lenght: "); Serial.println(uidLength);
+      //uidLength = 0;
       AccessControl();
     }
   //}while(1 > 0);
   readfromoutsideLoRa();
+  return;
 }
 void setup() {
   // put your setup code here, to run once:
@@ -481,6 +492,7 @@ void setup() {
   Serial1.begin(115200);
   //magnes
   pinMode(36, OUTPUT);
+  pinMode(35, OUTPUT);
   pinMode(4, OUTPUT);
   //Welcome
   Serial.println("Welcome!");
