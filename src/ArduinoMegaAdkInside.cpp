@@ -34,6 +34,7 @@ uint8_t Timeout = 0;
 boolean checknfc;
 //LoRa
 uint8_t byteFromESP32 [12] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+int Status;
 //const int eeAddress;
 //User Serial Input
 int input_a = 0;
@@ -402,6 +403,16 @@ void AccessControl()
               Serial.println("Passed! \n");
               //Itt van a hiba!!
               //RelayBuzzer();
+              //vissza a LoRa-ra
+              Status = 12;
+              digitalWrite(35, HIGH);
+              Serial1.write(Status);
+              Serial.print("Status "); Serial.print(Status); Serial.print(" has written back to LoRa! \n");
+              digitalWrite(35, LOW);
+              Serial.println("Waiting for incoming data...");
+              
+              return;
+              /*
               digitalWrite(36, HIGH);
               delay(100);
               digitalWrite(36, LOW);
@@ -409,6 +420,7 @@ void AccessControl()
               Serial.println("Waiting for incoming data...");
               //readfromoutsideLoRa();
               return;
+              */
               //Serial.println("STOP!");
             }
             address++;
@@ -479,6 +491,7 @@ void readfromoutsideLoRa()
       Serial.print("UID Lenght: "); Serial.println(uidLength);
       //uidLength = 0;
       AccessControl();
+      //return;
     }
   //}while(1 > 0);
   readfromoutsideLoRa();
