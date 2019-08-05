@@ -1,0 +1,232 @@
+//ESP32 LORA SIDE kapu
+#include <HardwareSerial.h>
+#include "heltec.h"
+//#include "arduino.h"
+#define BAND    433E6  //915E6
+HardwareSerial MEGA(1);
+uint8_t byteFromSerial = 0;
+uint8_t CARDDATA[12]={255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255};
+uint8_t DATA;
+double progress;
+int b = 2; 
+void MEGASERIAL();
+void OLEDGOTTHEUID();
+void LORASEND();
+void OLEDWAITINGFORUID();
+void OLEDSENDINGFINISHED();
+void setup() {     
+  // initialize both serial ports:
+  //Serial.begin(115200);
+  MEGA.begin(115200,SERIAL_8N1, 36, 12); //RX, TX
+  Heltec.begin(true /*DisplayEnable Enable*/, true /*Heltec.Heltec.Heltec.LoRa Disable*/, true /*Serial Enable*/, true /*PABOOST Enable*/, BAND /*long BAND*/);
+  Heltec.display->init();
+  Heltec.display->flipScreenVertically();
+  Heltec.display->setFont(ArialMT_Plain_24);
+  Heltec.display->drawString(0, 0, "L0Ra");
+  Heltec.display->display();
+  Heltec.display->setFont(ArialMT_Plain_16);
+  Heltec.display->drawString(0, 20, "INITAILIZED");
+  Heltec.display->drawString(0, 28, "--------------------------");
+  Heltec.display->drawString(0, 33, "--------------------------");
+  Heltec.display->setFont(ArialMT_Plain_10);
+  Heltec.display->drawString(0, 50, "Pal  Electronics  Ltd.");
+  Heltec.display->display();
+  
+  delay(3000); 
+  Heltec.display->clear();
+  //MEGASERIAL();  
+}
+void loop() {
+  MEGASERIAL();
+  Serial.println("hali...");
+  /* if (MEGA.available() > 0)
+  {
+    uint8_t byteFromSerial = MEGA.read();
+    Serial.println(byteFromSerial, HEX);
+    
+  byteFromSerial = 0;
+  }
+  //MEGA.write(b);
+  
+  
+  //LORASEND();*/
+}
+void MEGASERIAL()
+{
+  do
+  {
+    //byteFromSerial = MEGA.read();
+    if (MEGA.available() > 0)
+    {
+    uint8_t uidLength;
+    
+    for (int i = 2; MEGA.available() > 0; i++){
+    byteFromSerial = MEGA.read();
+    CARDDATA[i] = byteFromSerial;
+    }
+    if (((CARDDATA[2] == CARDDATA[6]) && (CARDDATA[3] == CARDDATA[7]) && (CARDDATA[4] == CARDDATA[8]) && (CARDDATA[5] == CARDDATA[9])) || ((CARDDATA[10] != 255) && (CARDDATA[11] != 255)))
+    //if (((CARDDATA[2] == CARDDATA[6]) || (CARDDATA[3] == CARDDATA[7]) || (CARDDATA[4] == CARDDATA[8]) || (CARDDATA[5] == CARDDATA[9])) || ((CARDDATA[6] != 0) || (CARDDATA[7] != 0) || (CARDDATA[8] != 0) || (CARDDATA[9] != 0) || (CARDDATA[10] != 255) || (CARDDATA[11] != 255)))
+    {
+      for (int z = 6; z < 10; z++)
+      {
+        CARDDATA[z] = 0;
+        }
+        for (int n = 10; n < 12; n++)
+        {
+          CARDDATA[n] = 255;
+          }
+      }else if (CARDDATA[2] == CARDDATA[9])
+      {
+        CARDDATA[9] = 0;
+        for (int n = 10; n < 12; n++)
+        {
+          CARDDATA[n] = 255;
+          }
+        }
+    OLEDGOTTHEUID();
+    //KIIRAS
+    
+    Serial.println("----------------------------------------------------------------------");
+    
+    for (int x = 0; x < 12; x++){
+    Serial.print("0x");
+    Serial.print(CARDDATA[x], HEX);
+    Serial.print(" ");
+    }
+    Serial.println(" ");
+    Serial.println("----------------------------------------------------------------------");
+  Serial.println();
+  
+    
+      
+      LORASEND();   
+    }
+    
+    byteFromSerial = 0;
+    }while (MEGA.available() > 0);
+  OLEDWAITINGFORUID();
+  MEGASERIAL();
+  }
+void LORASEND()
+{
+  Heltec.display->clear();
+  Heltec.display->setFont(ArialMT_Plain_10);
+  Heltec.display->drawString(0, 50, "Pal  Electronics  Ltd.");
+  
+  Heltec.display->setFont(ArialMT_Plain_16);
+  Heltec.display->drawString(0, 0, "Sending packet");
+  Heltec.display->display();
+  //SEND DATA
+  //Serial.println("----------------------------------------------------------------------");
+  Serial.println("Sending packet!");
+  progress = 0;
+  LoRa.beginPacket();
+
+ LoRa.write(CARDDATA, sizeof(CARDDATA));
+  
+  for (int i = 0; i <11; i++){
+    
+  
+  
+ 
+  
+  Heltec.display->drawProgressBar(30, 23, 72, 10, progress);
+  Heltec.display->display();
+  /*Serial.println("");*/
+  
+  /*Serial.print("CARDDATA ");
+  DATA = CARDDATA[i];
+  Serial.print("0x");
+  Serial.print(DATA, HEX);
+  Serial.print(" ");
+  Serial.print(i);
+  Serial.print(". byte");
+  Serial.print(" has sent to inside LoRa!"); */
+  progress = progress + 9.2;
+  }
+  LoRa.endPacket();
+  
+  //OLEDSENDING();
+  OLEDSENDINGFINISHED();
+  uint8_t CARDDATA[12]={255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255};
+  MEGASERIAL();
+  }
+void OLEDGOTTHEUID()
+{
+  /*Serial.println("||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||");
+  Serial.println("----------------------------------------------------------------------");*/
+  Serial.println("GOT THE UID:");
+  Heltec.display->clear();
+  Heltec.display->drawString(0, 0, "GOT THE UID");
+  Heltec.display->display();
+  delay(100);
+ }
+ void OLEDWAITINGFORUID()
+{
+  Heltec.display->clear();
+  Heltec.display->setFont(ArialMT_Plain_10);
+  Heltec.display->drawString(0, 50, "Pal  Electronics  Ltd.");
+  Heltec.display->setFont(ArialMT_Plain_16);
+  Heltec.display->drawString(0, 0, "WAITING FOR");
+  Heltec.display->drawString(0, 20, "UID");
+  Heltec.display->drawProgressBar(30, 23, 72, 10, 0);
+  Heltec.display->display();
+  //Heltec.display->display();
+  
+  for (double y = 10; y < 111; y = y + 10)
+  {
+    
+    if(MEGA.available() > 0){
+    MEGASERIAL();
+    }
+    
+  Heltec.display->drawProgressBar(30, 23, 72, 10, y);
+  if(MEGA.available() > 0){
+    MEGASERIAL();
+    }
+  delay(200);
+  if(MEGA.available() > 0){
+    MEGASERIAL();
+    }
+  Heltec.display->display();
+   
+    }
+  //MEGASERIAL();
+ }
+ /*void OLEDSENDING()
+ {
+  Serial.println("----------------------------------------------------------------------");
+  Serial.println("Sending packet!");
+  
+  Heltec.display->clear();
+  Heltec.display->setFont(ArialMT_Plain_10);
+  Heltec.display->drawString(0, 50, "Pal  Electronics  Ltd.");
+  Heltec.display->setFont(ArialMT_Plain_16);
+  Heltec.display->drawString(0, 0, "Sending packet");
+  Heltec.display->drawProgressBar(30, 23, 72, 10, 0);
+  Heltec.display->display();
+  
+  for (int y = 10; y < 101; y = y+10)
+  {
+    Heltec.display->drawProgressBar(30, 23, 72, 10, y);
+    delay(200);
+    Heltec.display->display();
+    }
+  }*/
+  void OLEDSENDINGFINISHED()
+ {
+  //Serial.println();
+  //Serial.println();
+  Serial.println("Packet has sent!");
+  /*Serial.println("----------------------------------------------------------------------");
+  Serial.println("||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||");
+  Serial.println(" ");*/
+  /*Heltec.display->clear();
+  Heltec.display->setFont(ArialMT_Plain_16);
+  Heltec.display->drawString(0, 0, "Packet has sent!");
+  Heltec.display->display();*/
+  //delay(100);
+  return;
+  }
+  
+  
