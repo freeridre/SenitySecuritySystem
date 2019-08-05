@@ -1,0 +1,93 @@
+//ESP32 LORA SIDE bent
+#include <HardwareSerial.h>
+#include "heltec.h"
+#include <Arduino.h>
+#define ss 18
+#define reset 14
+#define dio0 26
+
+#define SPI_frequency 10E6
+#define BAND 433E6 //you can set band here directly,e.g. 868E6,915E6
+uint8_t CardDataFromKapu[12] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+uint8_t byteFromKapu;
+uint8_t CARDDATATOINSIDEMEGA;
+int BackFromSenityStatus;
+int packetSize = LoRa.parsePacket();
+boolean ReceiveDataFromLoRa()
+{
+  // Stores the return value
+  boolean ret = false;
+  
+  // Receive data from LoRa
+  int packetSize = LoRa.parsePacket();
+  
+  if (packetSize)
+  {
+    //received a packet
+    Serial.print("Received packet '");
+    // read packet
+    int i = 0;
+    while (LoRa.available() && i < sizeof(CardDataFromKapu))
+    {
+      //Serial.print((char)LoRa.read());
+      CardDataFromKapu[i] = LoRa.read();
+      //Serial.print(byteFromKapu);
+      //Serial.println(byteFromKapu.charAt(4));
+      i++;
+    }
+    // print RSSI of packet
+    //Read DATA From LoRa
+    for (int i = 0; i < sizeof(CardDataFromKapu); i++)
+    {
+      Serial.print(CardDataFromKapu[i], HEX);
+    }
+    Serial.print("' with RSSI ");
+    Serial.println(LoRa.packetRssi());
+   ret = true;
+  }
+  return ret;
+}
+void SendCardDataToArduino()
+{  
+  for(int i = 0; i < sizeof(CardDataFromKapu); i += 1)
+  {
+      Serial1.write(CardDataFromKapu[i]);
+  }
+}
+void ReceiveDataFromArduino() {
+
+  uint8_t availableData = Serial1.available();
+  Serial.print("Available data: ");
+  Serial.println(availableData, HEX);
+  Serial1.write(12);
+  
+  while(Serial1.available() > 0)
+  {    
+    BackFromSenityStatus = Serial1.read();
+    Serial.print("Received data: ");
+    Serial.println(BackFromSenityStatus, HEX);
+  }
+}
+void setup()
+{
+  // put your setup code here, to run once:
+  Serial.begin(115200);
+  //Serial1.begin(115200, SERIAL_8N1, RXD1, TXD1);
+  //Heltec.begin(true /*DisplayEnable Enable*/, true /*Heltec.LoRa Disable*/, true /*Serial Enable*/, true /*PABOOST Enable*/, BAND /*long BAND*/);
+  Serial1.begin(9600, SERIAL_8N1, 36, 37);
+  Serial.println("Init done...");
+  Serial.println("Waiting for incoming data...");
+  
+}
+
+void loop()
+{
+  // put your main code here, to run repeatedly:
+  if(ReceiveDataFromLoRa()) {
+    SendCardDataToArduino();
+  }
+
+  ReceiveDataFromArduino();
+
+  delay(1000);
+}
