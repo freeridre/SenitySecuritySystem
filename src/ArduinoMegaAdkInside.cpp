@@ -406,6 +406,7 @@ void AccessControl()
               //vissza a LoRa-ra
               Status = 12;
               digitalWrite(35, HIGH);
+              //delay(2000);
               Serial1.write(Status);
               Serial.print("Status "); Serial.print(Status); Serial.print(" has written back to LoRa! \n");
               digitalWrite(35, LOW);
@@ -433,6 +434,11 @@ void AccessControl()
     }
     Serial.println("Nem jogosult! \n");
     //delay(2000);
+    Status = 11;
+    digitalWrite(35, HIGH);
+    Serial1.write(Status);
+    Serial.print("Status "); Serial.print(Status); Serial.print(" has written back to LoRa! \n");
+    digitalWrite(35, LOW);
     Serial.println("Waiting for incoming data...");
     return;
   }while (10 != 11);
