@@ -4,7 +4,9 @@
 #include <SPI.h>
 #include <Adafruit_PN532.h>
 #include "Nextion.h"
-
+#include "SparkFun_Qwiic_Rfid.h"
+#include <SoftwareSerial.h>
+SoftwareSerial HC05JDY30(10, 11); // RX, TX
 #define PN532_SCK  (52)
 #define PN532_MOSI (51)
 #define PN532_SS   (53)
@@ -28,6 +30,18 @@ int ButtonVal;
 int ButtonValToDoorControl;
 //ControlData
 int ControlData;
+#define RFID_ADDR 0x7D // Default I2C address 
+
+Qwiic_Rfid myRfid(RFID_ADDR);
+
+String tag, DataString; 
+int IntegerDataString;
+int IntegerDataStringArray[16] = {};
+int b = 1;
+int c = 0;
+int RFIDID = 14;
+int state = 0;
+unsigned int i = 0;
 //ControlDataCodes
 /*
 12 - AccessGranted
@@ -41,6 +55,7 @@ boolean cardreading ();
 void NFCINITIALIZE ();
 void senddatatolora();
 void ButtonPushedOutSide();
+void HC05JDY30FUNCTION();
 void setColor(int Red, int Green, int Blue)
 {
   #ifdef COMMON_ANODE
@@ -103,6 +118,12 @@ void setup()
   Serial.begin(115200);
   Serial1.begin(115200);
   Serial.println("Hello!");
+  Wire.begin();
+  HC05JDY30.begin(9600);
+  if(myRfid.begin())
+    Serial.println("RFID is ready to use!"); 
+  else
+    Serial.println("Could not communicate with Qwiic RFID!");
   NFCINITIALIZE ();
   //cardreading ();
 }
@@ -129,14 +150,29 @@ void RecieveDataFromGateLoRa()
     }
   }
 }
+void HC05JDY30FUNCTION()
+{
+  if(HC05JDY30.available() > 0)
+  { // Checks whether data is comming from the serial port
+    state = HC05JDY30.read(); // Reads the data from the serial port
+    if (state == 1)
+    {
+      LedBuzzerAccessGranted();
+      Serial.println("Access Granted, door has just opened by SmartPhoneApp!");
+    }
+  }
+}
 void loop() {
   //setColor(Off, Off, On);
   if(cardreading ())
   {
+    Serial.println("Itt vagyok");
+    delay(1110);
     senddatatolora();
   }
   RecieveDataFromGateLoRa();
   ButtonPushedOutSide();
+  HC05JDY30FUNCTION();
   //setColor(Off, Off, Off);
 }
 void NFCINITIALIZE ()
@@ -154,14 +190,75 @@ nfc.setPassiveActivationRetries(0x01);
   Serial.print("Found chip PN5"); Serial.println((versiondata>>24) & 0xFF, HEX); 
   Serial.print("Firmware ver. "); Serial.print((versiondata>>16) & 0xFF, DEC); 
   Serial.print('.'); Serial.println((versiondata>>8) & 0xFF, DEC);
-  Serial.println("Waiting for an ISO14443A Card ...");
+  Serial.println("Waiting for a Card...");
 }
   boolean cardreading ()
   {
+boolean ret;
+
+tag = myRfid.getTag();
+  if(tag.toInt() < 0)
+  {
+    unsigned int TagLength = tag.length();
+    while (TagLength < 16)
+    {
+      for (i; i < TagLength; i++)
+      {
+        DataString = tag.substring(c, b);
+        IntegerDataStringArray[i] = DataString.toInt();
+        b++;
+        c++;
+      }
+      while (TagLength < 16)
+      {
+        IntegerDataStringArray[i] = RFIDID;
+        TagLength++;
+        i++;
+        RFIDID--;
+      }
+    }
+    if (TagLength == 16)
+    {
+      for (unsigned int u = 0; u < TagLength; u++)
+      {
+        if (u <= 3)
+        {
+          uid[0] += IntegerDataStringArray[u];
+        }
+        if (u <= 7 && u > 3)
+        {
+          uid[1] += IntegerDataStringArray[u];
+        }
+        if (u <= 11 && u > 7)
+        {
+          uid[2] += IntegerDataStringArray[u];
+        }
+        if (u <= 15 && u > 11)
+        {
+          uid[3] += IntegerDataStringArray[u];
+        }
+      }
+    }
+    //Release variables
+    b = 1;c = 0;i = 0;RFIDID = 14;
+    Serial.print("TAG ID: ");
+    for (int p = 0; p < 4; p++)
+    {
+    Serial.print("0x");Serial.print(uid[p]);Serial.print(" ");
+    uidLength++;
+    }
+    Serial.println();
+    for (unsigned int u; u < TagLength; u++)
+    {
+      IntegerDataStringArray[u] = 0;
+    }
+    TagLength = 0;
+    tag = "";
+    ret = true;
+    return ret;
+  }
   // configure board to read RFID tags
   nfc.SAMConfig();
-  boolean ret;
-  
   // Wait for an ISO14443A type cards (Mifare, etc.).  When one is found
   // 'uid' will be populated with the UID, and uidLength will indicate
   // if the uid is 4 bytes (Mifare Classic) or 7 bytes (Mifare Ultralight)
@@ -180,8 +277,6 @@ nfc.setPassiveActivationRetries(0x01);
     ret = false;
     return ret;
   }
-
-
   void senddatatolora()
   {
     Serial1.write(uid, uidLength);
@@ -190,13 +285,15 @@ nfc.setPassiveActivationRetries(0x01);
     {
       uid[i] = 0;
     }
+    uidLength = 0;
     for (int i; i < 6; i++)
     {
       int UIDDelete = uid[i];
       Serial.print(UIDDelete, HEX);
     }
     Serial.print("\n");
-    delay(1110);
+    Serial.println("Waiting for a card...");
+    //delay(1110);
     }
 void ButtonPushedOutSide ()
 {
