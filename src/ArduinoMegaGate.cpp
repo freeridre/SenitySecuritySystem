@@ -18,7 +18,7 @@ uint8_t success;
 uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
 uint8_t uidLength, timeout;                        // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
 //BUZZER INIT
-int On = 255, Off = 0;
+int On = 255, Off = 0, Standby = 50;
 int BuzzerOn = 0, BuzzerOff = 255;
 int Buzzer = 6;
 int RedPin = 2;
@@ -28,6 +28,10 @@ int MagneticLock = 5;
 int Button = 7;
 int ButtonVal;
 int ButtonValToDoorControl;
+int PIR = 8;
+int PIRState = 0;
+int WaitingPIR, WaitingPIR2;
+int PowerOnTime = 5000;
 //ControlData
 int ControlData;
 #define RFID_ADDR 0x7D // Default I2C address 
@@ -56,6 +60,8 @@ void NFCINITIALIZE ();
 void senddatatolora();
 void ButtonPushedOutSide();
 void HC05JDY30FUNCTION();
+void CountDownTimerPIR();
+void MOTIONPIR();
 void setColor(int Red, int Green, int Blue)
 {
   #ifdef COMMON_ANODE
@@ -67,6 +73,10 @@ void setColor(int Red, int Green, int Blue)
   analogWrite(GreenPin, Green);
   analogWrite(BluePin, Blue);
   
+}
+void MOTIONPIR()
+{
+  PIRState = digitalRead(PIR);
 }
 void LedBuzzerAccessGranted()
 {
@@ -109,11 +119,12 @@ void setup()
   pinMode(Buzzer, OUTPUT);
   analogWrite(Buzzer, BuzzerOn);
   pinMode(Button, INPUT);
+  pinMode(PIR, INPUT);
   delay(100);
   if (currentMillis < time_half_second)
   {
     analogWrite(Buzzer, BuzzerOff);
-    setColor(Off, Off, On);
+    setColor(Off, Off, Standby);
     }
   Serial.begin(115200);
   Serial1.begin(115200);
@@ -163,17 +174,26 @@ void HC05JDY30FUNCTION()
   }
 }
 void loop() {
-  //setColor(Off, Off, On);
-  if(cardreading ())
+  MOTIONPIR();
+  if (PIRState == HIGH)
   {
-    Serial.println("Itt vagyok");
-    delay(1110);
-    senddatatolora();
+    WaitingPIR = millis();
+    setColor(Off, Off, On);
+    PIRState = LOW;
+    if(cardreading ())
+    {
+      delay(1110);
+      senddatatolora();
+    }
+  }
+  WaitingPIR2 = millis();
+  if(WaitingPIR2 - WaitingPIR > PowerOnTime)
+  {
+  setColor(Off, Off, Standby);
   }
   RecieveDataFromGateLoRa();
   ButtonPushedOutSide();
   HC05JDY30FUNCTION();
-  //setColor(Off, Off, Off);
 }
 void NFCINITIALIZE ()
 {
@@ -190,7 +210,7 @@ nfc.setPassiveActivationRetries(0x01);
   Serial.print("Found chip PN5"); Serial.println((versiondata>>24) & 0xFF, HEX); 
   Serial.print("Firmware ver. "); Serial.print((versiondata>>16) & 0xFF, DEC); 
   Serial.print('.'); Serial.println((versiondata>>8) & 0xFF, DEC);
-  Serial.println("Waiting for a Card...");
+  //Serial.println("Waiting for a Card...");
 }
   boolean cardreading ()
   {
