@@ -6,7 +6,11 @@
 #include "Nextion.h"
 #include "SparkFun_Qwiic_Rfid.h"
 #include <SoftwareSerial.h>
+#include <Adafruit_Fingerprint.h>
+SoftwareSerial FingerPrintSerial(12, 13); // RX, TX
+Adafruit_Fingerprint FingerPrint = Adafruit_Fingerprint(&FingerPrintSerial);
 SoftwareSerial HC05JDY30(10, 11); // RX, TX
+
 #define PN532_SCK  (52)
 #define PN532_MOSI (51)
 #define PN532_SS   (53)
@@ -61,6 +65,7 @@ void senddatatolora();
 void ButtonPushedOutSide();
 void HC05JDY30FUNCTION();
 void CountDownTimerPIR();
+void FingerPrintCheck();
 void MOTIONPIR();
 void setColor(int Red, int Green, int Blue)
 {
@@ -110,6 +115,110 @@ void LedBuzzerAccessDenied()
   //Blue
   setColor(Off, Off, On);
 }
+/*void FingerPrintCheck()
+{
+  if (FingerPrint.verifyPassword())
+  {
+    Serial.println("Found fingerprint sensor!");
+  } else
+  {
+    Serial.println("Did not find fingerprint sensor...");
+  }
+}
+uint8_t getFingerprintID()
+{
+  uint8_t p = FingerPrint.getImage();
+  switch (p)
+  {
+    case FINGERPRINT_OK:
+      Serial.println("Image taken");
+      break;
+    case FINGERPRINT_NOFINGER:
+      Serial.println("No finger detected");
+      return p;
+    case FINGERPRINT_PACKETRECIEVEERR:
+      Serial.println("Communication error");
+      return p;
+    case FINGERPRINT_IMAGEFAIL:
+      Serial.println("Imaging error");
+      return p;
+    default:
+      Serial.println("Unknown error");
+      return p;
+  }
+  p = FingerPrint.image2Tz();
+  switch (p)
+  {
+    case FINGERPRINT_OK:
+      Serial.println("Image converted");
+      break;
+    case FINGERPRINT_IMAGEMESS:
+      Serial.println("Image too messy");
+      return p;
+    case FINGERPRINT_PACKETRECIEVEERR:
+      Serial.println("Communication error");
+      return p;
+    case FINGERPRINT_FEATUREFAIL:
+      Serial.println("Could not find fingerprint features");
+      return p;
+    case FINGERPRINT_INVALIDIMAGE:
+      Serial.println("Could not find fingerprint features");
+      return p;
+    default:
+      Serial.println("Unknown error");
+      return p;
+  }
+  p = FingerPrint.fingerFastSearch();
+  if (p == FINGERPRINT_OK)
+  {
+    Serial.println("Found a print match!");
+  } else if (p == FINGERPRINT_PACKETRECIEVEERR) {
+    Serial.println("Communication error");
+    return p;
+  } else if (p == FINGERPRINT_NOTFOUND) {
+    Serial.println("Did not find a match");
+    return p;
+  } else {
+    Serial.println("Unknown error");
+    return p;
+  }
+  p = FingerPrint.fingerFastSearch();
+  if (p == FINGERPRINT_OK) {
+    Serial.println("Found a print match!");
+  } else if (p == FINGERPRINT_PACKETRECIEVEERR) {
+    Serial.println("Communication error");
+    return p;
+  } else if (p == FINGERPRINT_NOTFOUND) {
+    Serial.println("Did not find a match");
+    return p;
+  } else {
+    Serial.println("Unknown error");
+    return p;
+  }
+  
+  // found a match!
+  Serial.print("Found ID #"); Serial.print(FingerPrint.fingerID); 
+  Serial.print(" with confidence of "); Serial.println(FingerPrint.confidence); 
+
+  return FingerPrint.fingerID;
+}
+int getFingerprintIDez()
+{
+  uint8_t p = FingerPrint.getImage();
+  if (p != FINGERPRINT_OK)  return -1;
+
+  p = FingerPrint.image2Tz();
+  if (p != FINGERPRINT_OK)  return -1;
+
+  p = FingerPrint.fingerFastSearch();
+  if (p != FINGERPRINT_OK)  return -1;
+  
+  // found a match!
+  Serial.print("Found ID #"); Serial.print(FingerPrint.fingerID); 
+  Serial.print(" with confidence of "); Serial.println(FingerPrint.confidence);
+  LedBuzzerAccessGranted();
+  return FingerPrint.fingerID; 
+}*/
 void setup()
 {
   pinMode(RedPin, OUTPUT);
@@ -131,6 +240,16 @@ void setup()
   Serial.println("Hello!");
   Wire.begin();
   HC05JDY30.begin(9600);
+  if(HC05JDY30)
+  {
+    Serial.println("HC-05 is ready to use!");
+  }
+  else
+  {
+    Serial.println("Could not communicate with HC-05!");
+  }
+  //FingerPrint.begin(57600);
+  //FingerPrintCheck();
   if(myRfid.begin())
     Serial.println("RFID is ready to use!"); 
   else
@@ -148,7 +267,6 @@ void RecieveDataFromGateLoRa()
     {
       LedBuzzerAccessGranted();
       Serial.println("Access Granted, door has just opened!");
-      Serial.println("Waiting for an ISO14443A Card ...");
     }
     if (ControlData == 11)
     {
@@ -157,8 +275,8 @@ void RecieveDataFromGateLoRa()
         LedBuzzerAccessDenied();
       }
       Serial.println("Access Denied!");
-      Serial.println("Waiting for an ISO14443A Card ...");
     }
+    Serial.println("Waiting for an ISO14443A Card ...");
   }
 }
 void HC05JDY30FUNCTION()
@@ -173,16 +291,20 @@ void HC05JDY30FUNCTION()
     }
   }
 }
-void loop() {
+void loop()
+{
   MOTIONPIR();
   if (PIRState == HIGH)
   {
+    PIRState = LOW;
     WaitingPIR = millis();
     setColor(Off, Off, On);
     PIRState = LOW;
-    if(cardreading ())
+    //getFingerprintIDez();
+    if(cardreading())
     {
-      delay(1110);
+      Serial.println("Itt");
+      //delay(1110);
       senddatatolora();
     }
   }
@@ -191,6 +313,7 @@ void loop() {
   {
   setColor(Off, Off, Standby);
   }
+  
   RecieveDataFromGateLoRa();
   ButtonPushedOutSide();
   HC05JDY30FUNCTION();
@@ -213,10 +336,10 @@ nfc.setPassiveActivationRetries(0x01);
   //Serial.println("Waiting for a Card...");
 }
   boolean cardreading ()
-  {
-boolean ret;
-
-tag = myRfid.getTag();
+{
+  //Serial.println("ITT2");
+  boolean ret;
+  tag = myRfid.getTag();
   if(tag.toInt() < 0)
   {
     unsigned int TagLength = tag.length();
@@ -268,13 +391,20 @@ tag = myRfid.getTag();
     uidLength++;
     }
     Serial.println();
+    if (uid[1] > 0)
+    {
+      ret = true;
+    }
+    else
+    {
+      ret = false;
+    }
     for (unsigned int u; u < TagLength; u++)
     {
       IntegerDataStringArray[u] = 0;
     }
     TagLength = 0;
     tag = "";
-    ret = true;
     return ret;
   }
   // configure board to read RFID tags
@@ -291,22 +421,27 @@ tag = myRfid.getTag();
       Serial.print("  UID Value: ");
       nfc.PrintHex(uid, uidLength);
       Serial.println("");
+      while (nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, &uid[0], &uidLength))
+      {}
       ret = true;
       return ret;
     }
+  else
+  {
     ret = false;
     return ret;
+  }
   }
   void senddatatolora()
   {
     Serial1.write(uid, uidLength);
     Serial.println("UID HAS SENT TO LORA!");
-    for (int i; i < 6; i++)
+    for (unsigned int i; i < sizeof(uid); i++)
     {
       uid[i] = 0;
     }
     uidLength = 0;
-    for (int i; i < 6; i++)
+    for (unsigned int i; i < sizeof(uid); i++)
     {
       int UIDDelete = uid[i];
       Serial.print(UIDDelete, HEX);
