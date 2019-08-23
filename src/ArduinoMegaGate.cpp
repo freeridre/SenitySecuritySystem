@@ -34,8 +34,10 @@ int ButtonVal;
 int ButtonValToDoorControl;
 int PIR = 8;
 int PIRState = 0;
-int WaitingPIR, WaitingPIR2;
-int PowerOnTime = 5000;
+unsigned int PIRStateControl, ReturnMOTIONPIR;
+unsigned int WaitingPIR, WaitingPIR2, WaitingCardReading, WaitingCardReading2, osszeg = 0, CountDownReader = 3;
+unsigned int PowerOnTime = 3000;
+
 //ControlData
 int ControlData;
 #define RFID_ADDR 0x7D // Default I2C address 
@@ -66,7 +68,7 @@ void ButtonPushedOutSide();
 void HC05JDY30FUNCTION();
 void CountDownTimerPIR();
 void FingerPrintCheck();
-void MOTIONPIR();
+int MOTIONPIR(int PIRStateControl);
 void setColor(int Red, int Green, int Blue)
 {
   #ifdef COMMON_ANODE
@@ -79,9 +81,21 @@ void setColor(int Red, int Green, int Blue)
   analogWrite(BluePin, Blue);
   
 }
-void MOTIONPIR()
+int MOTIONPIR(int PIRStateControl)
 {
   PIRState = digitalRead(PIR);
+  if (PIRState == HIGH)
+  {
+    //Serial.println("Motion Detected!");
+    PIRStateControl = 1;
+    return PIRStateControl;
+  }
+  else if (PIRState == LOW)
+  {
+    //Serial.println("No Motion!");
+    PIRStateControl = 0;
+    return PIRStateControl;
+  }
 }
 void LedBuzzerAccessGranted()
 {
@@ -293,27 +307,28 @@ void HC05JDY30FUNCTION()
 }
 void loop()
 {
-  MOTIONPIR();
-  if (PIRState == HIGH)
+  MOTIONPIR(PIRStateControl);
+  ReturnMOTIONPIR = MOTIONPIR(PIRStateControl);
+  if (ReturnMOTIONPIR == 1)
   {
-    PIRState = LOW;
     WaitingPIR = millis();
     setColor(Off, Off, On);
-    PIRState = LOW;
     //getFingerprintIDez();
     if(cardreading())
     {
-      Serial.println("Itt");
-      //delay(1110);
       senddatatolora();
     }
+  }
+  else if (ReturnMOTIONPIR == 0)
+  {
   }
   WaitingPIR2 = millis();
   if(WaitingPIR2 - WaitingPIR > PowerOnTime)
   {
   setColor(Off, Off, Standby);
+  WaitingPIR2 = 0;
+  WaitingPIR = 0;
   }
-  
   RecieveDataFromGateLoRa();
   ButtonPushedOutSide();
   HC05JDY30FUNCTION();
@@ -338,100 +353,113 @@ nfc.setPassiveActivationRetries(0x01);
   boolean cardreading ()
 {
   //Serial.println("ITT2");
-  boolean ret;
-  tag = myRfid.getTag();
-  if(tag.toInt() < 0)
+  boolean ret = false;
+  ReturnMOTIONPIR = 0;
+  MOTIONPIR(PIRStateControl);
+  ReturnMOTIONPIR = MOTIONPIR(PIRStateControl);
+  if (ReturnMOTIONPIR == 1)
   {
-    unsigned int TagLength = tag.length();
-    while (TagLength < 16)
+    tag = myRfid.getTag();
+    if(tag.toInt() < 0)
     {
-      for (i; i < TagLength; i++)
-      {
-        DataString = tag.substring(c, b);
-        IntegerDataStringArray[i] = DataString.toInt();
-        b++;
-        c++;
-      }
+      unsigned int TagLength = tag.length();
       while (TagLength < 16)
       {
-        IntegerDataStringArray[i] = RFIDID;
-        TagLength++;
-        i++;
-        RFIDID--;
+        for (i; i < TagLength; i++)
+        {
+          DataString = tag.substring(c, b);
+          IntegerDataStringArray[i] = DataString.toInt();
+          b++;
+          c++;
+        }
+        while (TagLength < 16)
+        {
+          IntegerDataStringArray[i] = RFIDID;
+          TagLength++;
+          i++;
+          RFIDID--;
+        }
       }
-    }
-    if (TagLength == 16)
-    {
-      for (unsigned int u = 0; u < TagLength; u++)
+      if (TagLength == 16)
       {
-        if (u <= 3)
+        for (unsigned int u = 0; u < TagLength; u++)
         {
-          uid[0] += IntegerDataStringArray[u];
-        }
-        if (u <= 7 && u > 3)
-        {
-          uid[1] += IntegerDataStringArray[u];
-        }
-        if (u <= 11 && u > 7)
-        {
-          uid[2] += IntegerDataStringArray[u];
-        }
-        if (u <= 15 && u > 11)
-        {
-          uid[3] += IntegerDataStringArray[u];
+          if (u <= 3)
+          {
+            uid[0] += IntegerDataStringArray[u];
+          }
+          if (u <= 7 && u > 3)
+          {
+            uid[1] += IntegerDataStringArray[u];
+          }
+          if (u <= 11 && u > 7)
+          {
+            uid[2] += IntegerDataStringArray[u];
+          }
+          if (u <= 15 && u > 11)
+          {
+            uid[3] += IntegerDataStringArray[u];
+          }
         }
       }
+      //Release variables
+      b = 1;c = 0;i = 0;RFIDID = 14;
+      Serial.print("TAG ID: ");
+      for (int p = 0; p < 4; p++)
+      {
+      Serial.print("0x");Serial.print(uid[p]);Serial.print(" ");
+      uidLength++;
+      }
+      Serial.println();
+      if (uid[1] > 0)
+      {
+        ret = true;
+      }
+      else if (uid[1] == 0)
+      {
+        ret = false;
+      }
+      for (unsigned int u; u < TagLength; u++)
+      {
+        IntegerDataStringArray[u] = 0;
+      }
+      TagLength = 0;
+      tag = "";
+      return ret;
     }
-    //Release variables
-    b = 1;c = 0;i = 0;RFIDID = 14;
-    Serial.print("TAG ID: ");
-    for (int p = 0; p < 4; p++)
-    {
-    Serial.print("0x");Serial.print(uid[p]);Serial.print(" ");
-    uidLength++;
-    }
-    Serial.println();
+  
+    // configure board to read RFID tags
+  
+    // Wait for an ISO14443A type cards (Mifare, etc.).  When one is found
+    // 'uid' will be populated with the UID, and uidLength will indicate
+    // if the uid is 4 bytes (Mifare Classic) or 7 bytes (Mifare Ultralight)
+    nfc.SAMConfig();
+    success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength);//, timeout = 50);
+    // Display some basic information about the card
     if (uid[1] > 0)
-    {
-      ret = true;
-    }
-    else
+      {
+        Serial.println("Found an ISO14443A card");
+        Serial.print("  UID Length: ");Serial.print(uidLength, DEC);Serial.println(" bytes");
+        Serial.print("  UID Value: ");
+        nfc.PrintHex(uid, uidLength);
+        Serial.println("");
+        while (nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, &uid[0], &uidLength))
+        {}
+        ret = true;
+      }
+    else if (uid[1] == 0)
     {
       ret = false;
     }
-    for (unsigned int u; u < TagLength; u++)
-    {
-      IntegerDataStringArray[u] = 0;
-    }
-    TagLength = 0;
-    tag = "";
-    return ret;
   }
-  // configure board to read RFID tags
-  nfc.SAMConfig();
-  // Wait for an ISO14443A type cards (Mifare, etc.).  When one is found
-  // 'uid' will be populated with the UID, and uidLength will indicate
-  // if the uid is 4 bytes (Mifare Classic) or 7 bytes (Mifare Ultralight)
-  success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength);//, timeout = 50);
-  // Display some basic information about the card
-  if (uid[1] > 0)
-    {
-      Serial.println("Found an ISO14443A card");
-      Serial.print("  UID Length: ");Serial.print(uidLength, DEC);Serial.println(" bytes");
-      Serial.print("  UID Value: ");
-      nfc.PrintHex(uid, uidLength);
-      Serial.println("");
-      while (nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, &uid[0], &uidLength))
-      {}
-      ret = true;
-      return ret;
-    }
-  else
+  else if (ReturnMOTIONPIR == 0)
   {
-    ret = false;
+    Serial.println("Itt vagyok");
+    ReturnMOTIONPIR = 0;
     return ret;
   }
-  }
+  return ret;
+}
   void senddatatolora()
   {
     Serial1.write(uid, uidLength);
