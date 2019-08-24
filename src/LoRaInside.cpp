@@ -1,7 +1,6 @@
 //ESP32 LORA SIDE bent
 #include <HardwareSerial.h>
 #include "heltec.h"
-
 #define BAND    433E6  //you can set band here directly,e.g. 868E6,915E6
 HardwareSerial MEGA(1);
 uint8_t CardDataFromKapu[12] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
