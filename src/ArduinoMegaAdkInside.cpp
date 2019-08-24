@@ -28,7 +28,7 @@ int eepromcimeeprom = 4001;
 int eepromcim = 0;
 /*Maga az EEPROM méretét az eeAddress változóba raktuk*/ int eeAddress = EEPROM.read(eeAddresseeprom);
 //Init NFC Variables
-uint8_t success;
+uint8_t success = 0;
 uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };
 uint8_t uidLength = 0;
 uint8_t Timeout = 0;
@@ -38,7 +38,7 @@ int ID;
 //RFiD variables
 #define RFID_ADDR 0x7D // Default I2C address 
 Qwiic_Rfid myRfid(RFID_ADDR);
-String tag, DataString; 
+String tag = "0", DataString; 
 int IntegerDataString;
 int IntegerDataStringArray[16] = {};
 int b = 1;
@@ -585,61 +585,60 @@ do
         return;
       }
     }
-    if(tag.toInt() != 0)
-    {
-      unsigned int TagLength = tag.length();
-      //Serial.print("Current TagLength: "); Serial.println(TagLength);
-      while (TagLength < 16)
+      if(tag.toInt() != 0)
       {
-        for (i; i < TagLength; i++)
-        {
-          DataString = tag.substring(c, b);
-          IntegerDataStringArray[i] = DataString.toInt();
-          b++;
-          c++;
-        }
+        unsigned int TagLength = tag.length();
+        //Serial.print("Current TagLength: "); Serial.println(TagLength);
         while (TagLength < 16)
         {
-          IntegerDataStringArray[i] = RFIDID;
-          TagLength++;
-          i++;
-          RFIDID--;
+          for (i; i < TagLength; i++)
+          {
+            DataString = tag.substring(c, b);
+            IntegerDataStringArray[i] = DataString.toInt();
+            b++;
+            c++;
+          }
+          while (TagLength < 16)
+          {
+            IntegerDataStringArray[i] = RFIDID;
+            TagLength++;
+            i++;
+            RFIDID--;
+          }
         }
-      }
-      if (TagLength == 16)
-      {
-        //Serial.print("Modified Length: "); Serial.println(TagLength);
-        for (unsigned int u = 0; u < TagLength; u++)
+        if (TagLength == 16)
         {
-          //Serial.print(IntegerDataStringArray[u]);
-          if (u <= 3)
+          //Serial.print("Modified Length: "); Serial.println(TagLength);
+          for (unsigned int u = 0; u < TagLength; u++)
           {
-            uid[0] += IntegerDataStringArray[u];
-          }
-          if (u <= 7 && u > 3)
-          {
-            uid[1] += IntegerDataStringArray[u];
-          }
-          if (u <= 11 && u > 7)
-          {
-            uid[2] += IntegerDataStringArray[u];
-          }
-          if (u <= 15 && u > 11)
-          {
-            uid[3] += IntegerDataStringArray[u];
+            //Serial.print(IntegerDataStringArray[u]);
+            if (u <= 3)
+            {
+              uid[0] += IntegerDataStringArray[u];
+            }
+            if (u <= 7 && u > 3)
+            {
+              uid[1] += IntegerDataStringArray[u];
+            }
+            if (u <= 11 && u > 7)
+            {
+              uid[2] += IntegerDataStringArray[u];
+            }
+            if (u <= 15 && u > 11)
+            {
+              uid[3] += IntegerDataStringArray[u];
+            }
           }
         }
+        Serial.println();
+        //Release variables
+        b = 1;c = 0;i = 0;RFIDID = 14;
+        for (int p = 0; p < 4; p++)
+        {
+          uidLength++;
+        }
       }
-      Serial.println();
-      //Release variables
-      b = 1;c = 0;i = 0;RFIDID = 14;
-      for (int p = 0; p < 4; p++)
-      {
-        //Serial.print(uid[p]);
-      uidLength++;
-      }
-      Serial.println();
-    }
+    
     if (success > 0)
     {
       RFIDControlByte = 1;
@@ -703,7 +702,6 @@ do
                 {
                   uid[o] = 0;
                 }
-                uidLength = 0;
                 for (unsigned int u; u < 16; u++)
                 {
                   IntegerDataStringArray[u] = 0;
@@ -712,8 +710,9 @@ do
                 ID = 0; address = 0;
                 input_a = 0;
                 tag = "";
+                uidLength = 0;
                 CardLearningV2();
-                return;
+                //return;
               }
               address++;
             }
@@ -765,7 +764,7 @@ do
         Serial.println("A KARTYA/TAG nem kompatibilis!");
         CardLearningV2();
       }
-      RFIDControlByte = 0;
+    RFIDControlByte = 0;
     tag = "";
     //Serial.println(TagLength);
     //Serial.println(uidLength);
