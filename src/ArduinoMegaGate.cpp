@@ -314,14 +314,11 @@ void loop()
     WaitingPIR = millis();
     setColor(Off, Off, On);
     //getFingerprintIDez();
-    if(cardreading())
+  }
+  if(cardreading())
     {
       senddatatolora();
     }
-  }
-  else if (ReturnMOTIONPIR == 0)
-  {
-  }
   WaitingPIR2 = millis();
   if(WaitingPIR2 - WaitingPIR > PowerOnTime)
   {
@@ -354,82 +351,88 @@ nfc.setPassiveActivationRetries(0x01);
 {
   //Serial.println("ITT2");
   boolean ret = false;
-  ReturnMOTIONPIR = 0;
-  MOTIONPIR(PIRStateControl);
+  /*MOTIONPIR(PIRStateControl);
   ReturnMOTIONPIR = MOTIONPIR(PIRStateControl);
   if (ReturnMOTIONPIR == 1)
-  {
-    tag = myRfid.getTag();
-    if(tag.toInt() < 0)
-    {
-      unsigned int TagLength = tag.length();
-      while (TagLength < 16)
+  {*/
+      tag = myRfid.getTag();
+      if(tag.toInt() < 0)
       {
-        for (i; i < TagLength; i++)
-        {
-          DataString = tag.substring(c, b);
-          IntegerDataStringArray[i] = DataString.toInt();
-          b++;
-          c++;
-        }
+        unsigned int TagLength = tag.length();
         while (TagLength < 16)
         {
-          IntegerDataStringArray[i] = RFIDID;
-          TagLength++;
-          i++;
-          RFIDID--;
+          for (i; i < TagLength; i++)
+          {
+            DataString = tag.substring(c, b);
+            IntegerDataStringArray[i] = DataString.toInt();
+            b++;
+            c++;
+          }
+          while (TagLength < 16)
+          {
+            IntegerDataStringArray[i] = RFIDID;
+            TagLength++;
+            i++;
+            RFIDID--;
+          }
         }
-      }
-      if (TagLength == 16)
-      {
-        for (unsigned int u = 0; u < TagLength; u++)
+        if (TagLength == 16)
         {
-          if (u <= 3)
+          for (unsigned int u = 0; u < TagLength; u++)
           {
-            uid[0] += IntegerDataStringArray[u];
-          }
-          if (u <= 7 && u > 3)
-          {
-            uid[1] += IntegerDataStringArray[u];
-          }
-          if (u <= 11 && u > 7)
-          {
-            uid[2] += IntegerDataStringArray[u];
-          }
-          if (u <= 15 && u > 11)
-          {
-            uid[3] += IntegerDataStringArray[u];
+            if (u <= 3)
+            {
+              uid[0] += IntegerDataStringArray[u];
+            }
+            if (u <= 7 && u > 3)
+            {
+              uid[1] += IntegerDataStringArray[u];
+            }
+            if (u <= 11 && u > 7)
+            {
+              uid[2] += IntegerDataStringArray[u];
+            }
+            if (u <= 15 && u > 11)
+            {
+              uid[3] += IntegerDataStringArray[u];
+            }
           }
         }
+        //Release variables
+        b = 1;c = 0;i = 0;RFIDID = 14;
+        Serial.print("TAG ID: ");
+        for (int p = 0; p < 4; p++)
+        {
+        Serial.print("0x");Serial.print(uid[p]);Serial.print(" ");
+        uidLength++;
+        }
+        Serial.println();
+        if (uid[0] > 0)
+        {
+          if (uid[1] > 0)
+          {
+            if (uid[2] > 0)
+            {
+              if (uid[3] > 0)
+              {
+                ret = true;
+              }
+            }
+          }
+        }
+        else if (uid[1] <= 0)
+        {
+          ret = false;
+        }
+        for (unsigned int u; u < TagLength; u++)
+        {
+          IntegerDataStringArray[u] = 0;
+        }
+        TagLength = 0;
+        tag = "";
+        return ret;
       }
-      //Release variables
-      b = 1;c = 0;i = 0;RFIDID = 14;
-      Serial.print("TAG ID: ");
-      for (int p = 0; p < 4; p++)
-      {
-      Serial.print("0x");Serial.print(uid[p]);Serial.print(" ");
-      uidLength++;
-      }
-      Serial.println();
-      if (uid[1] > 0)
-      {
-        ret = true;
-      }
-      else if (uid[1] == 0)
-      {
-        ret = false;
-      }
-      for (unsigned int u; u < TagLength; u++)
-      {
-        IntegerDataStringArray[u] = 0;
-      }
-      TagLength = 0;
-      tag = "";
-      return ret;
-    }
-  
     // configure board to read RFID tags
-  
     // Wait for an ISO14443A type cards (Mifare, etc.).  When one is found
     // 'uid' will be populated with the UID, and uidLength will indicate
     // if the uid is 4 bytes (Mifare Classic) or 7 bytes (Mifare Ultralight)
@@ -451,13 +454,14 @@ nfc.setPassiveActivationRetries(0x01);
     {
       ret = false;
     }
-  }
+  /*}
   else if (ReturnMOTIONPIR == 0)
   {
     Serial.println("Itt vagyok");
     ReturnMOTIONPIR = 0;
+    ret = false;
     return ret;
-  }
+  }*/
   return ret;
 }
   void senddatatolora()
