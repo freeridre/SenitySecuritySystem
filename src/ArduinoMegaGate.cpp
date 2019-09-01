@@ -34,9 +34,20 @@ int ButtonVal;
 int ButtonValToDoorControl;
 int PIR = 8;
 int PIRState = 0;
+unsigned int PIRCount = 0;
+unsigned int PIRStat2 = 0;
 unsigned int PIRStateControl, ReturnMOTIONPIR;
 unsigned int WaitingPIR, WaitingPIR2, WaitingCardReading, WaitingCardReading2, osszeg = 0, CountDownReader = 3;
-unsigned int PowerOnTime = 3000;
+unsigned int PowerOnTime = 50;
+//MagnetReed
+const int Reed = 9;
+int ReedState;
+unsigned long SecondTime;
+unsigned long WaitingOpenedDoor = 150;
+unsigned long FirstTime;
+unsigned long DoorTimeOut;
+unsigned long ReturnDoorTimeOut;
+unsigned long FunctionReturnDoorTimeOut;
 
 //ControlData
 int ControlData;
@@ -59,7 +70,7 @@ unsigned int i = 0;
 10 - OutsideButtonPushed
 */
 //TIMER INIT
-unsigned long currentMillis = millis();
+unsigned long currentMillis;
 unsigned long time_half_second = 5000;
 boolean cardreading ();
 void NFCINITIALIZE ();
@@ -67,8 +78,17 @@ void senddatatolora();
 void ButtonPushedOutSide();
 void HC05JDY30FUNCTION();
 void CountDownTimerPIR();
-void FingerPrintCheck();
+void LedBuzzerOpenedGateTimeOut();
+int DoorOpenedTimeOut(int ReturnDoorTimeOut);
 int MOTIONPIR(int PIRStateControl);
+int OpenedGateTimeOutOn = 400;
+int OpenedGateTimeOutOff = 400;
+int LedBuzzerOpenedGateTimeOutV2 = 0;
+unsigned long previousMillis = 0;
+unsigned long OpenedDoorOnTime = 250;
+unsigned long OpenedDoorOffTime = 250;
+unsigned long OffTime = 1000;
+boolean DoorOpenState = false;
 void setColor(int Red, int Green, int Blue)
 {
   #ifdef COMMON_ANODE
@@ -86,16 +106,50 @@ int MOTIONPIR(int PIRStateControl)
   PIRState = digitalRead(PIR);
   if (PIRState == HIGH)
   {
-    //Serial.println("Motion Detected!");
-    PIRStateControl = 1;
+    Serial.println("No Motion!");
+    PIRStateControl = 0;
     return PIRStateControl;
   }
   else if (PIRState == LOW)
   {
-    //Serial.println("No Motion!");
-    PIRStateControl = 0;
+    Serial.println("Motion Detected!");
+    PIRStateControl = 1;
     return PIRStateControl;
   }
+  //return 1;
+}
+void LedBuzzerOpenedGateTimeOut()
+{
+  //Serial.print("Current Millis: "); Serial.println(currentMillis);
+  if((DoorOpenState) && (currentMillis - previousMillis) >= OpenedDoorOnTime)
+  {
+    //unsigned long ubc = currentMillis - previousMillis;
+    //Serial.print("Current Millis - Previous Millis: "); Serial.println(ubc);
+    //ledState = LOW;  // Turn it off
+    previousMillis = currentMillis;  // Remember the time
+    //Serial.print("Previous Millis: "); Serial.println(previousMillis);
+    //digitalWrite(ledPin, ledState);  // Update the actual LED
+    analogWrite(Buzzer, BuzzerOff);
+    setColor(Off, Off, Off);
+    //Serial.println("AJJASJF");
+    DoorOpenState = false;
+  }
+  else if ((!DoorOpenState) && (currentMillis - previousMillis) >= OpenedDoorOffTime)
+  {
+    //ledState = HIGH;  // turn it on
+    previousMillis = currentMillis;   // Remember the time
+    //digitalWrite(ledPin, ledState);	  // Update the actual LED
+    analogWrite(Buzzer, BuzzerOn);
+    setColor(On, On, Off);
+    //Serial.println("125235163262");
+    DoorOpenState = true;
+  }
+  /*setColor(On, On, Off);
+  analogWrite(Buzzer, BuzzerOn);
+  delay(250);
+  setColor(Off, Off, Off);
+  analogWrite(Buzzer, BuzzerOff);
+  delay(250);*/
 }
 void LedBuzzerAccessGranted()
 {
@@ -120,7 +174,7 @@ void LedBuzzerAccessGranted()
 }
 void LedBuzzerAccessDenied()
 {
-  setColor(On, Off, Off);
+setColor(On, Off, Off);
   analogWrite(Buzzer, BuzzerOn);
   delay(150);
   setColor(Off, Off, Off);
@@ -129,112 +183,9 @@ void LedBuzzerAccessDenied()
   //Blue
   setColor(Off, Off, On);
 }
-/*void FingerPrintCheck()
-{
-  if (FingerPrint.verifyPassword())
-  {
-    Serial.println("Found fingerprint sensor!");
-  } else
-  {
-    Serial.println("Did not find fingerprint sensor...");
-  }
-}
-uint8_t getFingerprintID()
-{
-  uint8_t p = FingerPrint.getImage();
-  switch (p)
-  {
-    case FINGERPRINT_OK:
-      Serial.println("Image taken");
-      break;
-    case FINGERPRINT_NOFINGER:
-      Serial.println("No finger detected");
-      return p;
-    case FINGERPRINT_PACKETRECIEVEERR:
-      Serial.println("Communication error");
-      return p;
-    case FINGERPRINT_IMAGEFAIL:
-      Serial.println("Imaging error");
-      return p;
-    default:
-      Serial.println("Unknown error");
-      return p;
-  }
-  p = FingerPrint.image2Tz();
-  switch (p)
-  {
-    case FINGERPRINT_OK:
-      Serial.println("Image converted");
-      break;
-    case FINGERPRINT_IMAGEMESS:
-      Serial.println("Image too messy");
-      return p;
-    case FINGERPRINT_PACKETRECIEVEERR:
-      Serial.println("Communication error");
-      return p;
-    case FINGERPRINT_FEATUREFAIL:
-      Serial.println("Could not find fingerprint features");
-      return p;
-    case FINGERPRINT_INVALIDIMAGE:
-      Serial.println("Could not find fingerprint features");
-      return p;
-    default:
-      Serial.println("Unknown error");
-      return p;
-  }
-  p = FingerPrint.fingerFastSearch();
-  if (p == FINGERPRINT_OK)
-  {
-    Serial.println("Found a print match!");
-  } else if (p == FINGERPRINT_PACKETRECIEVEERR) {
-    Serial.println("Communication error");
-    return p;
-  } else if (p == FINGERPRINT_NOTFOUND) {
-    Serial.println("Did not find a match");
-    return p;
-  } else {
-    Serial.println("Unknown error");
-    return p;
-  }
-  p = FingerPrint.fingerFastSearch();
-  if (p == FINGERPRINT_OK) {
-    Serial.println("Found a print match!");
-  } else if (p == FINGERPRINT_PACKETRECIEVEERR) {
-    Serial.println("Communication error");
-    return p;
-  } else if (p == FINGERPRINT_NOTFOUND) {
-    Serial.println("Did not find a match");
-    return p;
-  } else {
-    Serial.println("Unknown error");
-    return p;
-  }
-  
-  // found a match!
-  Serial.print("Found ID #"); Serial.print(FingerPrint.fingerID); 
-  Serial.print(" with confidence of "); Serial.println(FingerPrint.confidence); 
-
-  return FingerPrint.fingerID;
-}
-int getFingerprintIDez()
-{
-  uint8_t p = FingerPrint.getImage();
-  if (p != FINGERPRINT_OK)  return -1;
-
-  p = FingerPrint.image2Tz();
-  if (p != FINGERPRINT_OK)  return -1;
-
-  p = FingerPrint.fingerFastSearch();
-  if (p != FINGERPRINT_OK)  return -1;
-  
-  // found a match!
-  Serial.print("Found ID #"); Serial.print(FingerPrint.fingerID); 
-  Serial.print(" with confidence of "); Serial.println(FingerPrint.confidence);
-  LedBuzzerAccessGranted();
-  return FingerPrint.fingerID; 
-}*/
 void setup()
 {
+  FirstTime = millis();
   pinMode(RedPin, OUTPUT);
   pinMode(GreenPin, OUTPUT);
   pinMode(BluePin, OUTPUT);
@@ -243,6 +194,7 @@ void setup()
   analogWrite(Buzzer, BuzzerOn);
   pinMode(Button, INPUT);
   pinMode(PIR, INPUT);
+  pinMode(Reed, INPUT_PULLUP);
   delay(100);
   if (currentMillis < time_half_second)
   {
@@ -305,30 +257,104 @@ void HC05JDY30FUNCTION()
     }
   }
 }
+int DoorOpenedTimeOut(int ReturnDoorTimeOut)
+{
+  ReedState = digitalRead(Reed);
+  if (ReedState == HIGH)
+  {
+    ReedState = digitalRead(Reed);
+    DoorTimeOut++;
+    /*Serial.print(DoorTimeOut);
+    Serial.println(" Opened");*/
+    if (DoorTimeOut >= WaitingOpenedDoor)
+    {
+      ReedState = digitalRead(Reed);
+      DoorTimeOut--;
+      LedBuzzerOpenedGateTimeOut();
+      return ReturnDoorTimeOut = 1;
+      /*if (ReedState == LOW)
+      {
+        DoorTimeOut = 0;
+        Serial.print(DoorTimeOut); Serial.println("Released");
+        setColor(Off, Off, Standby);
+      }*/
+    }
+  }
+  else if (ReedState == LOW)
+  {
+    ReedState = digitalRead(Reed);
+    DoorTimeOut = 0;
+    //setColor(Off, Off, Standby);
+    /*Serial.print(DoorTimeOut);
+    Serial.println(" Locked");*/
+    return ReturnDoorTimeOut = 0;
+  }
+}
 void loop()
 {
+  currentMillis = millis();
   MOTIONPIR(PIRStateControl);
   ReturnMOTIONPIR = MOTIONPIR(PIRStateControl);
-  if (ReturnMOTIONPIR == 1)
+  Serial.print("ReturnMOTIONPIR: "); Serial.println(ReturnMOTIONPIR);
+  int ReturnReturnDoorTimeOut = DoorOpenedTimeOut(ReturnDoorTimeOut);
+  if(ReturnReturnDoorTimeOut == 0)
   {
-    WaitingPIR = millis();
-    setColor(Off, Off, On);
-    //getFingerprintIDez();
+    /*if (ReturnMOTIONPIR == 0)
+    {
+      //WaitingPIR = millis();
+      //Serial.println("Motion Detected!");
+      //Serial.println(WaitingPIR);
+      setColor(Off, Off, On);
+      PIRState = digitalRead(PIR);
+      Serial.print("PIRState: "); Serial.println(PIRState);
+      Serial.print("PIRCount: "); Serial.println(PIRCount);
+      PIRCount++;
+      if (PIRCount >= PowerOnTime)
+      {
+        PIRState = digitalRead(PIR);
+        PIRCount--;
+        setColor(Off, Off, Standby);
+        Serial.print("PIRCount: "); Serial.println(PIRCount);
+      }
+    }
+    WaitingPIR2 = millis();
+    if(WaitingPIR2 - WaitingPIR > PowerOnTime)
+    {
+      Serial.print("Waiting PIR2: ");Serial.println(WaitingPIR2);
+      Serial.print("Waiting PIR: ");Serial.println(WaitingPIR);
+    setColor(Off, Off, Standby);
+    Serial.println("No Motion!");
+    WaitingPIR2 = 0;
+    WaitingPIR = 0;
+    }*/
+    if (ReturnMOTIONPIR == 1)
+    {
+      PIRStat2 = 1;
+    }
+    if (PIRStat2 == 1)
+    {
+      setColor(Off, Off, On);
+      PIRCount++;
+      //Serial.print("PIRCount: "); Serial.println(PIRCount);
+      if (PIRCount >= PowerOnTime)
+      {
+        PIRState = digitalRead(PIR);
+        PIRCount--;
+        setColor(Off, Off, Standby);
+        //Serial.print("PIRCount: "); Serial.println(PIRCount);
+        PIRStat2 = 0;
+        PIRCount = 0;
+      }
+    }
   }
   if(cardreading())
     {
       senddatatolora();
     }
-  WaitingPIR2 = millis();
-  if(WaitingPIR2 - WaitingPIR > PowerOnTime)
-  {
-  setColor(Off, Off, Standby);
-  WaitingPIR2 = 0;
-  WaitingPIR = 0;
-  }
   RecieveDataFromGateLoRa();
   ButtonPushedOutSide();
   HC05JDY30FUNCTION();
+  DoorOpenedTimeOut(ReturnDoorTimeOut);
 }
 void NFCINITIALIZE ()
 {
