@@ -104,13 +104,13 @@ void setColor(int Red, int Green, int Blue)
 int MOTIONPIR(int PIRStateControl)
 {
   PIRState = digitalRead(PIR);
-  if (PIRState == HIGH)
+  if (PIRState == LOW)
   {
     Serial.println("No Motion!");
     PIRStateControl = 0;
     return PIRStateControl;
   }
-  else if (PIRState == LOW)
+  else if (PIRState == HIGH)
   {
     Serial.println("Motion Detected!");
     PIRStateControl = 1;
@@ -284,7 +284,8 @@ int DoorOpenedTimeOut(int ReturnDoorTimeOut)
   {
     ReedState = digitalRead(Reed);
     DoorTimeOut = 0;
-    //setColor(Off, Off, Standby);
+    setColor(Off, Off, Standby);
+    analogWrite(Buzzer, BuzzerOff);
     /*Serial.print(DoorTimeOut);
     Serial.println(" Locked");*/
     return ReturnDoorTimeOut = 0;
