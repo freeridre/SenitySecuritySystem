@@ -24,6 +24,7 @@ uint8_t uidLength, timeout;                        // Length of the UID (4 or 7 
 //BUZZER INIT
 int On = 255, Off = 0, Standby = 50;
 int BuzzerOn = 0, BuzzerOff = 255;
+int BuzzerFrequency1 = 500; int BuzzerFrequency2 = 1000; int BuzzerFrequency3 = 1500; int BuzzerFrequency4 = 2000;
 int Buzzer = 6;
 int RedPin = 2;
 int GreenPin = 3;
@@ -129,7 +130,8 @@ void LedBuzzerOpenedGateTimeOut()
     previousMillis = currentMillis;  // Remember the time
     //Serial.print("Previous Millis: "); Serial.println(previousMillis);
     //digitalWrite(ledPin, ledState);  // Update the actual LED
-    analogWrite(Buzzer, BuzzerOff);
+    //analogWrite(Buzzer, BuzzerOff);
+    noTone(Buzzer);
     setColor(Off, Off, Off);
     //Serial.println("AJJASJF");
     DoorOpenState = false;
@@ -139,7 +141,8 @@ void LedBuzzerOpenedGateTimeOut()
     //ledState = HIGH;  // turn it on
     previousMillis = currentMillis;   // Remember the time
     //digitalWrite(ledPin, ledState);	  // Update the actual LED
-    analogWrite(Buzzer, BuzzerOn);
+    //analogWrite(Buzzer, BuzzerOn);
+    tone(Buzzer, BuzzerFrequency3);
     setColor(On, On, Off);
     //Serial.println("125235163262");
     DoorOpenState = true;
@@ -155,19 +158,23 @@ void LedBuzzerAccessGranted()
 {
   setColor(Off, On, Off);
   analogWrite(MagneticLock, On);
-  analogWrite(Buzzer, BuzzerOn);
+  //analogWrite(Buzzer, BuzzerOn);
+  tone(Buzzer, BuzzerFrequency3);
   delay(150);
   setColor(Off, Off, Off);
   analogWrite(MagneticLock, Off);
-  analogWrite(Buzzer, BuzzerOff);
+  //analogWrite(Buzzer, BuzzerOff);
+  noTone(Buzzer);
   delay(150);
   setColor(Off, On, Off);
   analogWrite(MagneticLock, On);
-  analogWrite(Buzzer, BuzzerOn);
+  //analogWrite(Buzzer, BuzzerOn);
+  tone(Buzzer, BuzzerFrequency3);
   delay(1000);
   setColor(Off, Off, Off);
   analogWrite(MagneticLock, Off);
-  analogWrite(Buzzer, BuzzerOff);
+  //analogWrite(Buzzer, BuzzerOff);
+  noTone(Buzzer);
   delay(150);
   //Blue
   setColor(Off, Off, On);
@@ -175,10 +182,12 @@ void LedBuzzerAccessGranted()
 void LedBuzzerAccessDenied()
 {
 setColor(On, Off, Off);
-  analogWrite(Buzzer, BuzzerOn);
+  //analogWrite(Buzzer, BuzzerOn);
+  tone(Buzzer, BuzzerFrequency3);
   delay(150);
   setColor(Off, Off, Off);
-  analogWrite(Buzzer, BuzzerOff);
+  //analogWrite(Buzzer, BuzzerOff);
+  noTone(Buzzer);
   delay(150);
   //Blue
   setColor(Off, Off, On);
@@ -191,14 +200,16 @@ void setup()
   pinMode(BluePin, OUTPUT);
   pinMode(MagneticLock, OUTPUT);
   pinMode(Buzzer, OUTPUT);
-  analogWrite(Buzzer, BuzzerOn);
+  //analogWrite(Buzzer, BuzzerOn);
+  tone(Buzzer, BuzzerFrequency2);
   pinMode(Button, INPUT);
   pinMode(PIR, INPUT);
   pinMode(Reed, INPUT_PULLUP);
   delay(100);
   if (currentMillis < time_half_second)
   {
-    analogWrite(Buzzer, BuzzerOff);
+    //analogWrite(Buzzer, BuzzerOff);
+    noTone(Buzzer);
     setColor(Off, Off, Standby);
     }
   Serial.begin(115200);
@@ -285,7 +296,8 @@ int DoorOpenedTimeOut(int ReturnDoorTimeOut)
     ReedState = digitalRead(Reed);
     DoorTimeOut = 0;
     setColor(Off, Off, Standby);
-    analogWrite(Buzzer, BuzzerOff);
+    //analogWrite(Buzzer, BuzzerOff);
+    noTone(Buzzer);
     /*Serial.print(DoorTimeOut);
     Serial.println(" Locked");*/
     return ReturnDoorTimeOut = 0;
