@@ -24,11 +24,11 @@ uint8_t uidLength, timeout;                        // Length of the UID (4 or 7 
 //BUZZER INIT
 int On = 255, Off = 0, Standby = 50;
 int BuzzerOn = 0, BuzzerOff = 255;
-int BuzzerFrequency1 = 500; int BuzzerFrequency2 = 1000; int BuzzerFrequency3 = 1500; int BuzzerFrequency4 = 2000;
-int Buzzer = 6;
+int BuzzerFrequency1 = 2000; int BuzzerFrequency2 = 2500; int BuzzerFrequency3 = 3000; int BuzzerFrequency4 = 3500; int BuzzerFrequency5 = 4000; int BuzzerFrequency6 = 4500; int BuzzerFrequency7 = 5000;
+int Buzzer = 31;
 int RedPin = 2;
-int GreenPin = 3;
-int BluePin = 4;
+int GreenPin = 4;
+int BluePin = 3;
 int MagneticLock = 5;
 int Button = 7;
 int ButtonVal;
@@ -37,6 +37,7 @@ int PIR = 8;
 int PIRState = 0;
 unsigned int PIRCount = 0;
 unsigned int PIRStat2 = 0;
+unsigned int CountPir = 0;
 unsigned int PIRStateControl, ReturnMOTIONPIR;
 unsigned int WaitingPIR, WaitingPIR2, WaitingCardReading, WaitingCardReading2, osszeg = 0, CountDownReader = 3;
 unsigned int PowerOnTime = 50;
@@ -107,8 +108,9 @@ int MOTIONPIR(int PIRStateControl)
   PIRState = digitalRead(PIR);
   if (PIRState == LOW)
   {
-    Serial.println("No Motion!");
+    //Serial.println("No Motion!");
     PIRStateControl = 0;
+    CountPir++;
     return PIRStateControl;
   }
   else if (PIRState == HIGH)
@@ -117,7 +119,7 @@ int MOTIONPIR(int PIRStateControl)
     PIRStateControl = 1;
     return PIRStateControl;
   }
-  //return 1;
+  return 1;
 }
 void LedBuzzerOpenedGateTimeOut()
 {
@@ -142,7 +144,7 @@ void LedBuzzerOpenedGateTimeOut()
     previousMillis = currentMillis;   // Remember the time
     //digitalWrite(ledPin, ledState);	  // Update the actual LED
     //analogWrite(Buzzer, BuzzerOn);
-    tone(Buzzer, BuzzerFrequency3);
+    tone(Buzzer, BuzzerFrequency6);
     setColor(On, On, Off);
     //Serial.println("125235163262");
     DoorOpenState = true;
@@ -201,7 +203,7 @@ void setup()
   pinMode(MagneticLock, OUTPUT);
   pinMode(Buzzer, OUTPUT);
   //analogWrite(Buzzer, BuzzerOn);
-  tone(Buzzer, BuzzerFrequency2);
+  tone(Buzzer, BuzzerFrequency5);
   pinMode(Button, INPUT);
   pinMode(PIR, INPUT);
   pinMode(Reed, INPUT_PULLUP);
@@ -275,8 +277,8 @@ int DoorOpenedTimeOut(int ReturnDoorTimeOut)
   {
     ReedState = digitalRead(Reed);
     DoorTimeOut++;
-    /*Serial.print(DoorTimeOut);
-    Serial.println(" Opened");*/
+    /*Serial.print(DoorTimeOut);*/
+    Serial.println(" Opened");
     if (DoorTimeOut >= WaitingOpenedDoor)
     {
       ReedState = digitalRead(Reed);
@@ -305,10 +307,11 @@ int DoorOpenedTimeOut(int ReturnDoorTimeOut)
 }
 void loop()
 {
+  Serial.println(CountPir);
   currentMillis = millis();
   MOTIONPIR(PIRStateControl);
   ReturnMOTIONPIR = MOTIONPIR(PIRStateControl);
-  Serial.print("ReturnMOTIONPIR: "); Serial.println(ReturnMOTIONPIR);
+  //Serial.print("ReturnMOTIONPIR: "); Serial.println(ReturnMOTIONPIR);
   int ReturnReturnDoorTimeOut = DoorOpenedTimeOut(ReturnDoorTimeOut);
   if(ReturnReturnDoorTimeOut == 0)
   {
@@ -359,6 +362,7 @@ void loop()
         PIRCount = 0;
       }
     }
+
   }
   if(cardreading())
     {
