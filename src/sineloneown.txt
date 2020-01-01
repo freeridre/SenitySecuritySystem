@@ -8,13 +8,16 @@
 #define BRIGHTNESS4           66
 #define LED_TYPE              WS2812B
 #define COLOR_ORDER           GRB
-#define UPDATES_PER_SECOND    100
-#define FRAMES_PER_SECOND     120
+//#define UPDATES_PER_SECOND    100
+//#define FRAMES_PER_SECOND     120
 CRGB leds[NUM_LEDS];
 void sinelon();
-uint8_t gHue = 50;
-
-
+void sinelon()
+{
+  fadeToBlackBy(leds,NUM_LEDS, 1);
+  int pos = beatsin16(30, 0, NUM_LEDS-1);
+  leds[pos] = (0, 0, 255);
+}
 void setup()
 {
   FastLED.setBrightness(BRIGHTNESS1);
@@ -22,17 +25,6 @@ void setup()
 }
 void loop()
 {
-    sinelon();
-    FastLED.show();
-    //FastLED.delay(1000/FRAMES_PER_SECOND);
-    //EVERY_N_MILLISECONDS( 20 ) { gHue++; };
-
-}
-void sinelon()
-{
-  // a colored dot sweeping back and forth, with fading trails
-  fadeToBlackBy( leds, NUM_LEDS, 5);
-  int pos = beatsin16( 30, 0, NUM_LEDS-1, 0, 6);
-  leds[pos] = (0, 0, 255);
-  
+  sinelon();
+  FastLED.show();
 }

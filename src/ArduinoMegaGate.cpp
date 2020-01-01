@@ -7,6 +7,24 @@
 #include "SparkFun_Qwiic_Rfid.h"
 #include <SoftwareSerial.h>
 #include <Adafruit_Fingerprint.h>
+#include <FastLED.h>
+#define LED_PIN               30
+#define NUM_LEDS              12
+#define BRIGHTNESS1           255
+#define BRIGHTNESS2           192
+#define BRIGHTNESS3           129
+#define BRIGHTNESS4           66
+#define LED_TYPE              WS2812B
+#define COLOR_ORDER           GRB
+int fadeAmount = 15;               // Set the amount to fade I usually do 5, 10, 15, 20, 25 etc even up to 255.
+int brightness = 0;
+//#define UPDATES_PER_SECOND    100
+//#define FRAMES_PER_SECOND     120
+CRGB leds[NUM_LEDS];
+int WS2812BTrunOff = 0;
+uint8_t hue = 0;
+void sinelon();
+uint8_t gHue = 50;
 SoftwareSerial FingerPrintSerial(12, 13); // RX, TX
 Adafruit_Fingerprint FingerPrint = Adafruit_Fingerprint(&FingerPrintSerial);
 SoftwareSerial HC05JDY30(10, 11); // RX, TX
@@ -40,7 +58,8 @@ unsigned int PIRStat2 = 0;
 unsigned int CountPir = 0;
 unsigned int PIRStateControl, ReturnMOTIONPIR;
 unsigned int WaitingPIR, WaitingPIR2, WaitingCardReading, WaitingCardReading2, osszeg = 0, CountDownReader = 3;
-unsigned int PowerOnTime = 50;
+//How much time after Motion detect.
+unsigned int PowerOnTime = 100;
 //MagnetReed
 const int Reed = 9;
 int ReedState;
@@ -49,6 +68,7 @@ unsigned long WaitingOpenedDoor = 150;
 unsigned long FirstTime;
 unsigned long DoorTimeOut;
 unsigned long ReturnDoorTimeOut;
+unsigned int DoorOpenStatusForWS2812B = 0;
 unsigned long FunctionReturnDoorTimeOut;
 
 //ControlData
@@ -91,6 +111,99 @@ unsigned long OpenedDoorOnTime = 250;
 unsigned long OpenedDoorOffTime = 250;
 unsigned long OffTime = 1000;
 boolean DoorOpenState = false;
+void WS2812BBlack()
+{
+  for(int i = 0; i < NUM_LEDS; i++ )
+   {
+    leds[i] = CRGB::Black;  // Set Color HERE!!!
+  }
+}
+void WS2812BRed()
+{
+  for(int i = 0; i < NUM_LEDS; i++ )
+   {
+    leds[i] = CRGB::Red;  // Set Color HERE!!!
+  }
+}
+void WS2812BGreen()
+{
+  for(int i = 0; i < NUM_LEDS; i++ )
+   {
+    leds[i] = CRGB::Green;  // Set Color HERE!!!
+  }
+}
+void WS2812BYellow()
+{
+  for(int i = 0; i < NUM_LEDS; i++ )
+   {
+    leds[i] = CRGB::Yellow;  // Set Color HERE!!!
+  }
+}
+void WS2812BBlue()
+{
+  //FastLED.setBrightness(BRIGHTNESS1);
+  //fill_solid(leds, NUM_LEDS, CHSV(hue, 0, 255));
+//FastLED_fade_in_counter = 0;
+//for (int i = 0; NUM_LEDS > i; i++)
+  //{
+  //leds[i] = CRGB::Blue;
+/*for(FastLED_fade_in_counter = 0; FastLED_fade_in_counter < 50; FastLED_fade_in_counter = +10)
+    {
+      //leds[i].maximizeBrightness(FastLED_fade_in_counter);
+      //FastLED_fade_in_counter++;
+      FastLED.delay(60);
+      leds[0] = CRGB::Blue; leds[0].maximizeBrightness(FastLED_fade_in_counter);
+      leds[1] = CRGB::Blue; leds[1].maximizeBrightness(FastLED_fade_in_counter);
+      leds[2] = CRGB::Blue; leds[2].maximizeBrightness(FastLED_fade_in_counter);
+      leds[3] = CRGB::Blue; leds[3].maximizeBrightness(FastLED_fade_in_counter);
+      leds[4] = CRGB::Blue; leds[4].maximizeBrightness(FastLED_fade_in_counter);
+      leds[5] = CRGB::Blue; leds[5].maximizeBrightness(FastLED_fade_in_counter);
+      leds[6] = CRGB::Blue; leds[6].maximizeBrightness(FastLED_fade_in_counter);
+      leds[7] = CRGB::Blue; leds[7].maximizeBrightness(FastLED_fade_in_counter);
+      leds[8] = CRGB::Blue; leds[8].maximizeBrightness(FastLED_fade_in_counter);
+      leds[9] = CRGB::Blue; leds[9].maximizeBrightness(FastLED_fade_in_counter);
+      leds[10] = CRGB::Blue; leds[10].maximizeBrightness(FastLED_fade_in_counter);
+      leds[11] = CRGB::Blue; leds[11].maximizeBrightness(FastLED_fade_in_counter);
+    }*/
+
+
+
+  for(int i = 0; i < NUM_LEDS; i++ )
+   {
+    leds[i] = CRGB::Blue;  // Set Color HERE!!!
+    leds[i].fadeLightBy(brightness);
+  }
+  //FastLED.show();
+  brightness = brightness + fadeAmount;
+  // reverse the direction of the fading at the ends of the fade: 
+  if(brightness == 0 || brightness == 255)
+  {
+    fadeAmount = -fadeAmount ; 
+  }    
+  delay(50);  // This delay sets speed of the fade. I usually do from 5-75 but you can always go higher.
+
+
+
+
+  //dim8_raw(leds);
+
+  /*if(FastLED_fade_in_counter == 50)
+    {*/
+      //FastLED_fade_in_counter = 0;
+      //FastLED.clear(leds);
+    //}
+  //}
+  
+  
+}
+void sinelon()
+{
+    FastLED.setBrightness(BRIGHTNESS1);
+    fadeToBlackBy(leds,NUM_LEDS, 178);
+    int pos = beatsin16(17, 0, NUM_LEDS-1);
+    leds[pos] = (0, 0, 255);
+    
+}
 void setColor(int Red, int Green, int Blue)
 {
   #ifdef COMMON_ANODE
@@ -135,6 +248,7 @@ void LedBuzzerOpenedGateTimeOut()
     //analogWrite(Buzzer, BuzzerOff);
     noTone(Buzzer);
     setColor(Off, Off, Off);
+    FastLED.clear(leds);
     //Serial.println("AJJASJF");
     DoorOpenState = false;
   }
@@ -146,6 +260,7 @@ void LedBuzzerOpenedGateTimeOut()
     //analogWrite(Buzzer, BuzzerOn);
     tone(Buzzer, BuzzerFrequency6);
     setColor(On, On, Off);
+    WS2812BYellow();
     //Serial.println("125235163262");
     DoorOpenState = true;
   }
@@ -160,21 +275,32 @@ void LedBuzzerAccessGranted()
 {
   setColor(Off, On, Off);
   analogWrite(MagneticLock, On);
+  WS2812BGreen();
+  FastLED.show();
   //analogWrite(Buzzer, BuzzerOn);
   tone(Buzzer, BuzzerFrequency3);
   delay(150);
+
   setColor(Off, Off, Off);
   analogWrite(MagneticLock, Off);
+  WS2812BBlack();
+  FastLED.show();
   //analogWrite(Buzzer, BuzzerOff);
   noTone(Buzzer);
   delay(150);
+
   setColor(Off, On, Off);
   analogWrite(MagneticLock, On);
+  WS2812BGreen();
+  FastLED.show();
   //analogWrite(Buzzer, BuzzerOn);
   tone(Buzzer, BuzzerFrequency3);
   delay(1000);
+
   setColor(Off, Off, Off);
   analogWrite(MagneticLock, Off);
+  WS2812BBlack();
+  FastLED.show();
   //analogWrite(Buzzer, BuzzerOff);
   noTone(Buzzer);
   delay(150);
@@ -183,11 +309,20 @@ void LedBuzzerAccessGranted()
 }
 void LedBuzzerAccessDenied()
 {
+  int ledx = 0;
+  for (ledx = 0; ledx < 13; ledx++)
+  {
+    leds[ledx] = (255, 0, 0);
+  }
 setColor(On, Off, Off);
+WS2812BRed();
+FastLED.show();
   //analogWrite(Buzzer, BuzzerOn);
   tone(Buzzer, BuzzerFrequency3);
   delay(150);
   setColor(Off, Off, Off);
+  WS2812BBlack();
+  FastLED.show();
   //analogWrite(Buzzer, BuzzerOff);
   noTone(Buzzer);
   delay(150);
@@ -197,6 +332,11 @@ setColor(On, Off, Off);
 void setup()
 {
   FirstTime = millis();
+  FastLED.setBrightness(BRIGHTNESS1);
+  FastLED.addLeds<LED_TYPE,LED_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
+  FastLED.clear(leds);
+  
+  //FastLED.addLeds<LED_TYPE,LED_PIN,COLOR_ORDER>(leds, NUM_LEDS);
   pinMode(RedPin, OUTPUT);
   pinMode(GreenPin, OUTPUT);
   pinMode(BluePin, OUTPUT);
@@ -217,7 +357,7 @@ void setup()
   Serial.begin(115200);
   Serial1.begin(115200);
   Serial.println("Hello!");
-  Wire.begin();
+  //**Wire.begin();
   HC05JDY30.begin(9600);
   if(HC05JDY30)
   {
@@ -229,10 +369,10 @@ void setup()
   }
   //FingerPrint.begin(57600);
   //FingerPrintCheck();
-  if(myRfid.begin())
+  /**if(myRfid.begin())
     Serial.println("RFID is ready to use!"); 
   else
-    Serial.println("Could not communicate with Qwiic RFID!");
+    Serial.println("Could not communicate with Qwiic RFID!");**/
   NFCINITIALIZE ();
   //cardreading ();
 }
@@ -275,6 +415,10 @@ int DoorOpenedTimeOut(int ReturnDoorTimeOut)
   ReedState = digitalRead(Reed);
   if (ReedState == HIGH)
   {
+    if (DoorOpenStatusForWS2812B != 1)
+    {
+    sinelon();
+    }
     ReedState = digitalRead(Reed);
     DoorTimeOut++;
     /*Serial.print(DoorTimeOut);*/
@@ -283,7 +427,9 @@ int DoorOpenedTimeOut(int ReturnDoorTimeOut)
     {
       ReedState = digitalRead(Reed);
       DoorTimeOut--;
+      DoorOpenStatusForWS2812B = 1;
       LedBuzzerOpenedGateTimeOut();
+
       return ReturnDoorTimeOut = 1;
       /*if (ReedState == LOW)
       {
@@ -298,6 +444,7 @@ int DoorOpenedTimeOut(int ReturnDoorTimeOut)
     ReedState = digitalRead(Reed);
     DoorTimeOut = 0;
     setColor(Off, Off, Standby);
+    //sinelon();
     //analogWrite(Buzzer, BuzzerOff);
     noTone(Buzzer);
     /*Serial.print(DoorTimeOut);
@@ -307,7 +454,9 @@ int DoorOpenedTimeOut(int ReturnDoorTimeOut)
 }
 void loop()
 {
-  Serial.println(CountPir);
+  //FastLED.delay(1000/FRAMES_PER_SECOND);
+  //EVERY_N_MILLISECONDS(100);
+  //**Serial.println(CountPir);
   currentMillis = millis();
   MOTIONPIR(PIRStateControl);
   ReturnMOTIONPIR = MOTIONPIR(PIRStateControl);
@@ -349,20 +498,33 @@ void loop()
     }
     if (PIRStat2 == 1)
     {
+      
+      //Serial.println("Itt2!");
       setColor(Off, Off, On);
+      WS2812BBlue();
+      WS2812BTrunOff = 1;
       PIRCount++;
       //Serial.print("PIRCount: "); Serial.println(PIRCount);
       if (PIRCount >= PowerOnTime)
       {
         PIRState = digitalRead(PIR);
         PIRCount--;
-        setColor(Off, Off, Standby);
+        //setColor(Off, Off, Standby);
+        
+        //Serial.println("Itt!");
         //Serial.print("PIRCount: "); Serial.println(PIRCount);
         PIRStat2 = 0;
         PIRCount = 0;
       }
     }
-
+    else if (ReturnMOTIONPIR == 0)
+    {
+      PIRStat2 = 0;
+    }
+    if (PIRStat2 == 0)
+    {
+      sinelon();
+    }
   }
   if(cardreading())
     {
@@ -372,6 +534,7 @@ void loop()
   ButtonPushedOutSide();
   HC05JDY30FUNCTION();
   DoorOpenedTimeOut(ReturnDoorTimeOut);
+  FastLED.show(leds);
 }
 void NFCINITIALIZE ()
 {
@@ -388,7 +551,7 @@ nfc.setPassiveActivationRetries(0x01);
   Serial.print("Found chip PN5"); Serial.println((versiondata>>24) & 0xFF, HEX); 
   Serial.print("Firmware ver. "); Serial.print((versiondata>>16) & 0xFF, DEC); 
   Serial.print('.'); Serial.println((versiondata>>8) & 0xFF, DEC);
-  //Serial.println("Waiting for a Card...");
+  Serial.println("Waiting for a Card...");
 }
   boolean cardreading ()
 {
@@ -398,7 +561,7 @@ nfc.setPassiveActivationRetries(0x01);
   ReturnMOTIONPIR = MOTIONPIR(PIRStateControl);
   if (ReturnMOTIONPIR == 1)
   {*/
-      tag = myRfid.getTag();
+      /**tag = myRfid.getTag();
       if(tag.toInt() < 0)
       {
         unsigned int TagLength = tag.length();
@@ -474,7 +637,7 @@ nfc.setPassiveActivationRetries(0x01);
         TagLength = 0;
         tag = "";
         return ret;
-      }
+      }**/
     // configure board to read RFID tags
     // Wait for an ISO14443A type cards (Mifare, etc.).  When one is found
     // 'uid' will be populated with the UID, and uidLength will indicate
