@@ -251,6 +251,8 @@ void LedBuzzerOpenedGateTimeOut()
     FastLED.clear(leds);
     //Serial.println("AJJASJF");
     DoorOpenState = false;
+    //Release Motion RGB RING Effect (Fades)
+    PIRStat2 = 0;
   }
   else if ((!DoorOpenState) && (currentMillis - previousMillis) >= OpenedDoorOffTime)
   {
@@ -263,6 +265,8 @@ void LedBuzzerOpenedGateTimeOut()
     WS2812BYellow();
     //Serial.println("125235163262");
     DoorOpenState = true;
+    //Release Motion RGB RING Effect (Fades)
+    PIRStat2 = 0;
   }
   /*setColor(On, On, Off);
   analogWrite(Buzzer, BuzzerOn);
@@ -270,6 +274,8 @@ void LedBuzzerOpenedGateTimeOut()
   setColor(Off, Off, Off);
   analogWrite(Buzzer, BuzzerOff);
   delay(250);*/
+  //Release Motion RGB RING Effect (Fades)
+  PIRStat2 = 0;
 }
 void LedBuzzerAccessGranted()
 {
@@ -306,6 +312,8 @@ void LedBuzzerAccessGranted()
   delay(150);
   //Blue
   setColor(Off, Off, On);
+  //Release Motion RGB RING Effect (Fades)
+  PIRStat2 = 0;
 }
 void LedBuzzerAccessDenied()
 {
@@ -328,6 +336,8 @@ FastLED.show();
   delay(150);
   //Blue
   setColor(Off, Off, On);
+  //Release Motion RGB RING Effect (Fades)
+  PIRStat2 = 0;
 }
 void setup()
 {
