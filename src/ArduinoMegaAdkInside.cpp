@@ -113,6 +113,7 @@ void CardReadOut()
         {
           main_menu = 1;
           loop();
+          return;
         }
     }
 }
@@ -135,6 +136,7 @@ void EEPROMDELETE()
     //int eepromcim = EEPROM.read(eepromcimeeprom);
     main_menu = 1;
     loop();
+    return;
 }
 void EEPROMREADOUTALL()
 {
@@ -162,6 +164,7 @@ void EEPROMREADOUTALL()
         {
           main_menu = 1;
           loop();
+          return;
         }
     }
 }
@@ -497,12 +500,12 @@ void setup() {
   //Welcome
   Serial.println("Welcome!");
   //Begin I2C
-  Wire.begin();
+  //**Wire.begin();
   //Test I2C Communication
-  if(myRfid.begin())
+  /**if(myRfid.begin())
     Serial.println("I2C RFiD Ready!"); 
   else
-    Serial.println("Could not communicate with Qwiic RFID!");
+    Serial.println("Could not communicate with Qwiic RFID!");**/
 
   //Serial1 start
   Serial1.begin(115200);
@@ -557,7 +560,6 @@ void loop()
     {
       Serial.println("Waiting for incoming data...");
       readfromoutsideLoRa();
-
     }
 }
 void CardLearningV2()
@@ -574,7 +576,7 @@ do
     while(success == 0 && tag.toInt() == 0)
     {
     success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength);
-    tag = myRfid.getTag();
+    //**tag = myRfid.getTag();
     input_a = Serial.read();
     //Serial.println("Waiting for Card...");
       if (input_a == 6)
@@ -585,7 +587,7 @@ do
         return;
       }
     }
-      if(tag.toInt() != 0)
+      /**if(tag.toInt() != 0)
       {
         unsigned int TagLength = tag.length();
         //Serial.print("Current TagLength: "); Serial.println(TagLength);
@@ -637,7 +639,7 @@ do
         {
           uidLength++;
         }
-      }
+      }**/
     
     if (success > 0)
     {
