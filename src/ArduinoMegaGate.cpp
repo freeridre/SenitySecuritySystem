@@ -42,7 +42,7 @@ uint8_t uidLength, timeout;                        // Length of the UID (4 or 7 
 //BUZZER INIT
 int On = 255, Off = 0, Standby = 50;
 int BuzzerOn = 0, BuzzerOff = 255;
-int BuzzerFrequency1 = 2000; int BuzzerFrequency2 = 2500; int BuzzerFrequency3 = 3000; int BuzzerFrequency4 = 3500; int BuzzerFrequency5 = 4000; int BuzzerFrequency6 = 4500; int BuzzerFrequency7 = 5000;
+int BuzzerFrequency1 = 2000; int BuzzerFrequency2 = 2100; int BuzzerFrequency3 = 2200; int BuzzerFrequency4 = 2300; int BuzzerFrequency5 = 2400;
 int Buzzer = 31;
 int RedPin = 2;
 int GreenPin = 4;
@@ -64,7 +64,10 @@ unsigned int PowerOnTime = 100;
 const int Reed = 9;
 int ReedState;
 unsigned long SecondTime;
+//How much time after opened door
 unsigned long WaitingOpenedDoor = 150;
+//Enable opened door detection 0 - no, 1 - BuzzerWithLeds, 2 - noBuzzer
+byte DoorOpenedEnable = 1;
 unsigned long FirstTime;
 unsigned long DoorTimeOut;
 unsigned long ReturnDoorTimeOut;
@@ -173,7 +176,7 @@ void WS2812BBlue()
     leds[i] = CRGB::Blue;  // Set Color HERE!!!
     leds[i].fadeLightBy(brightness);
   }
-  //FastLED.show();
+  FastLED.show();
   brightness = brightness + fadeAmount;
   // reverse the direction of the fading at the ends of the fade: 
   if(brightness == 0 || brightness == 255)
@@ -199,10 +202,9 @@ void WS2812BBlue()
 void sinelon()
 {
     FastLED.setBrightness(BRIGHTNESS1);
-    fadeToBlackBy(leds,NUM_LEDS, 178);
+    fadeToBlackBy(leds,NUM_LEDS, 150);
     int pos = beatsin16(17, 0, NUM_LEDS-1);
     leds[pos] = (0, 0, 255);
-    
 }
 void setColor(int Red, int Green, int Blue)
 {
@@ -246,7 +248,7 @@ void LedBuzzerOpenedGateTimeOut()
     //Serial.print("Previous Millis: "); Serial.println(previousMillis);
     //digitalWrite(ledPin, ledState);  // Update the actual LED
     //analogWrite(Buzzer, BuzzerOff);
-    noTone(Buzzer);
+    
     setColor(Off, Off, Off);
     FastLED.clear(leds);
     //Serial.println("AJJASJF");
@@ -260,7 +262,10 @@ void LedBuzzerOpenedGateTimeOut()
     previousMillis = currentMillis;   // Remember the time
     //digitalWrite(ledPin, ledState);	  // Update the actual LED
     //analogWrite(Buzzer, BuzzerOn);
-    tone(Buzzer, BuzzerFrequency6);
+    if (DoorOpenedEnable == 1)
+    {
+      tone(Buzzer, BuzzerFrequency1);
+    }
     setColor(On, On, Off);
     WS2812BYellow();
     //Serial.println("125235163262");
@@ -276,6 +281,7 @@ void LedBuzzerOpenedGateTimeOut()
   delay(250);*/
   //Release Motion RGB RING Effect (Fades)
   PIRStat2 = 0;
+  
 }
 void LedBuzzerAccessGranted()
 {
@@ -284,7 +290,7 @@ void LedBuzzerAccessGranted()
   WS2812BGreen();
   FastLED.show();
   //analogWrite(Buzzer, BuzzerOn);
-  tone(Buzzer, BuzzerFrequency3);
+  tone(Buzzer, BuzzerFrequency1);
   delay(150);
 
   setColor(Off, Off, Off);
@@ -300,7 +306,7 @@ void LedBuzzerAccessGranted()
   WS2812BGreen();
   FastLED.show();
   //analogWrite(Buzzer, BuzzerOn);
-  tone(Buzzer, BuzzerFrequency3);
+  tone(Buzzer, BuzzerFrequency1);
   delay(1000);
 
   setColor(Off, Off, Off);
@@ -326,7 +332,7 @@ setColor(On, Off, Off);
 WS2812BRed();
 FastLED.show();
   //analogWrite(Buzzer, BuzzerOn);
-  tone(Buzzer, BuzzerFrequency3);
+  tone(Buzzer, BuzzerFrequency1);
   delay(150);
   setColor(Off, Off, Off);
   WS2812BBlack();
@@ -353,7 +359,7 @@ void setup()
   pinMode(MagneticLock, OUTPUT);
   pinMode(Buzzer, OUTPUT);
   //analogWrite(Buzzer, BuzzerOn);
-  tone(Buzzer, BuzzerFrequency5);
+  tone(Buzzer, BuzzerFrequency1);
   pinMode(Button, INPUT);
   pinMode(PIR, INPUT);
   pinMode(Reed, INPUT_PULLUP);
@@ -422,48 +428,104 @@ void HC05JDY30FUNCTION()
 }
 int DoorOpenedTimeOut(int ReturnDoorTimeOut)
 {
-  ReedState = digitalRead(Reed);
-  if (ReedState == HIGH)
-  {
-    if (DoorOpenStatusForWS2812B != 1)
-    {
-    sinelon();
-    }
+  if (DoorOpenedEnable == 1)
+  {  
+    
     ReedState = digitalRead(Reed);
-    DoorTimeOut++;
-    /*Serial.print(DoorTimeOut);*/
-    Serial.println(" Opened");
-    if (DoorTimeOut >= WaitingOpenedDoor)
+    if (ReedState == HIGH)
+    {
+      if (DoorOpenStatusForWS2812B != 1 )
+      {
+        sinelon();
+        
+      }
+     
+      ReedState = digitalRead(Reed);
+      DoorTimeOut++;
+      /*Serial.print(DoorTimeOut);*/
+      Serial.println(" Opened");
+      if (DoorTimeOut >= WaitingOpenedDoor)
+      {
+        ReedState = digitalRead(Reed);
+        DoorTimeOut--;
+        DoorOpenStatusForWS2812B = 1;
+        LedBuzzerOpenedGateTimeOut();
+
+        return ReturnDoorTimeOut = 1;
+        /*if (ReedState == LOW)
+        {
+          DoorTimeOut = 0;
+          Serial.print(DoorTimeOut); Serial.println("Released");
+          setColor(Off, Off, Standby);
+        }*/
+      }
+    }
+    else if (ReedState == LOW)
     {
       ReedState = digitalRead(Reed);
-      DoorTimeOut--;
-      DoorOpenStatusForWS2812B = 1;
-      LedBuzzerOpenedGateTimeOut();
+      DoorTimeOut = 0;
+      setColor(Off, Off, Standby);
+      DoorOpenStatusForWS2812B = 0;
+      //sinelon();
+      //analogWrite(Buzzer, BuzzerOff);
 
-      return ReturnDoorTimeOut = 1;
-      /*if (ReedState == LOW)
-      {
-        DoorTimeOut = 0;
-        Serial.print(DoorTimeOut); Serial.println("Released");
-        setColor(Off, Off, Standby);
-      }*/
+      //noTone(Buzzer);
+
+      /*Serial.print(DoorTimeOut);
+      Serial.println(" Locked");*/
+      return ReturnDoorTimeOut = 0;
     }
-  }
-  else if (ReedState == LOW)
+  }else if (DoorOpenedEnable == 0)
+  {
+
+  }else if (DoorOpenedEnable == 2)
   {
     ReedState = digitalRead(Reed);
-    DoorTimeOut = 0;
-    setColor(Off, Off, Standby);
-    //sinelon();
-    //analogWrite(Buzzer, BuzzerOff);
-    noTone(Buzzer);
-    /*Serial.print(DoorTimeOut);
-    Serial.println(" Locked");*/
-    return ReturnDoorTimeOut = 0;
+    if (ReedState == HIGH)
+    {
+      if (DoorOpenStatusForWS2812B != 1)
+      {
+      sinelon();
+      }
+      ReedState = digitalRead(Reed);
+      DoorTimeOut++;
+      /*Serial.print(DoorTimeOut);*/
+      Serial.println(" Opened");
+      if (DoorTimeOut >= WaitingOpenedDoor)
+      {
+        ReedState = digitalRead(Reed);
+        DoorTimeOut--;
+        DoorOpenStatusForWS2812B = 1;
+        LedBuzzerOpenedGateTimeOut();
+
+        return ReturnDoorTimeOut = 1;
+        /*if (ReedState == LOW)
+        {
+          DoorTimeOut = 0;
+          Serial.print(DoorTimeOut); Serial.println("Released");
+          setColor(Off, Off, Standby);
+        }*/
+      }
+    }
+    else if (ReedState == LOW)
+    {
+      ReedState = digitalRead(Reed);
+      DoorTimeOut = 0;
+      setColor(Off, Off, Standby);
+      //sinelon();
+      //analogWrite(Buzzer, BuzzerOff);
+
+      //noTone(Buzzer);
+
+      /*Serial.print(DoorTimeOut);
+      Serial.println(" Locked");*/
+      return ReturnDoorTimeOut = 0;
+    }
   }
 }
 void loop()
 {
+  noTone(Buzzer);
   //FastLED.delay(1000/FRAMES_PER_SECOND);
   //EVERY_N_MILLISECONDS(100);
   //**Serial.println(CountPir);
@@ -663,7 +725,11 @@ nfc.setPassiveActivationRetries(0x01);
         nfc.PrintHex(uid, uidLength);
         Serial.println("");
         while (nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, &uid[0], &uidLength))
-        {}
+        {
+          
+          WS2812BBlue();
+          FastLED.show();
+        }
         ret = true;
       }
     else if (uid[1] == 0)
