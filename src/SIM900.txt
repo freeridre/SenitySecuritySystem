@@ -1,0 +1,68 @@
+#include <Arduino.h>
+
+#define SIM900PowerPin 22
+#define Led 13
+
+void SerialMonitor();
+int SIM900Power(int SIM900ReturnStatus);
+void SIM900GateOpen();
+int SIM900ReturnStatusMain;
+int SIM900ReturnStatus;
+void setup()
+{
+  pinMode(SIM900PowerPin, OUTPUT);
+  Serial.begin(9600);
+  Serial.println("Hello!");
+  Serial2.begin(9600);
+  delay(10);
+  SIM900ReturnStatusMain = SIM900Power(SIM900ReturnStatus);
+  if (SIM900ReturnStatusMain == 1)
+    {
+        Serial.println("SIM900 Has Turned On!");
+    }
+    else
+    {
+        Serial.println("SIM900 Has Turned Off!");
+    }
+}
+void loop()
+{
+    //SerialMonitor();
+    SIM900GateOpen();
+}
+void SerialMonitor()
+{
+    delay(5);
+    while (Serial.available()) 
+  {
+    Serial2.write(Serial.read());//Forward what Serial received to Software Serial Port
+  }
+  
+  while (Serial2.available()) 
+  {
+    Serial.write(Serial2.read());//Forward what Software Serial received to Serial Port
+  }
+}
+int SIM900Power(int SIM900ReturnStatus)
+{
+    digitalWrite(SIM900PowerPin,HIGH);
+    delay(1000);
+    digitalWrite(SIM900PowerPin,LOW);
+    delay(5000);
+    return SIM900ReturnStatus = 1;
+}
+void SIM900GateOpen()
+{
+    while(Serial2.available())
+    {
+        Serial.println("Hivnak!");
+        delay(10);
+        //Serial2.println("ATH[0]");
+        Serial2.println("ATH\r");
+        delay(10);
+        digitalWrite(Led,HIGH);
+        delay(1000);
+        digitalWrite(Led,LOW);
+        delay(1000);
+    }
+}

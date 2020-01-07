@@ -58,6 +58,8 @@ unsigned int PIRStat2 = 0;
 unsigned int CountPir = 0;
 unsigned int PIRStateControl, ReturnMOTIONPIR;
 unsigned int WaitingPIR, WaitingPIR2, WaitingCardReading, WaitingCardReading2, osszeg = 0, CountDownReader = 3;
+//LoRa Seetings
+#define LORA_RESET 111
 //How much time after Motion detect.
 unsigned int PowerOnTime = 100;
 //MagnetReed
@@ -104,6 +106,7 @@ void ButtonPushedOutSide();
 void HC05JDY30FUNCTION();
 void CountDownTimerPIR();
 void LedBuzzerOpenedGateTimeOut();
+void LoRaReset ();
 int DoorOpenedTimeOut(int ReturnDoorTimeOut);
 int MOTIONPIR(int PIRStateControl);
 int OpenedGateTimeOutOn = 400;
@@ -114,6 +117,12 @@ unsigned long OpenedDoorOnTime = 250;
 unsigned long OpenedDoorOffTime = 250;
 unsigned long OffTime = 1000;
 boolean DoorOpenState = false;
+void LoRaReset ()
+{
+  Serial1.write(LORA_RESET);
+  Serial.println("LoRa Has Just Reseted. Cause: Arduino Gate Has Reseted.");
+  Serial1.flush();
+}
 void WS2812BBlack()
 {
   for(int i = 0; i < NUM_LEDS; i++ )
@@ -373,6 +382,8 @@ void setup()
   Serial.begin(115200);
   Serial1.begin(115200);
   Serial.println("Hello!");
+  LoRaReset();
+  delay(2000);
   //**Wire.begin();
   HC05JDY30.begin(9600);
   if(HC05JDY30)
