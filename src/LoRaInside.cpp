@@ -19,7 +19,8 @@ void setup() {
   Heltec.begin(true /*DisplayEnable Enable*/, true /*Heltec.LoRa Disable*/, true /*Serial Enable*/, true /*PABOOST Enable*/, BAND /*long BAND*/);
   
   Serial.println();
-  Serial.println("hello waiting for incoming data...");
+  Serial.println("Hello It's LoRaInSide.");
+  Serial.println("Waiting For InComing Data...");
 }
 
 void loop() {    
@@ -44,7 +45,7 @@ boolean ReceiveDataFromLoRa() {
   
   if (packetSize) {
      // received a packet
-    Serial.print("Received packet '");
+    Serial.print("Received Packet From Gate LoRa: ");
     // read packet
     int i = 0;
     while (LoRa.available() && i < sizeof(CardDataFromKapu)) {
@@ -57,11 +58,12 @@ boolean ReceiveDataFromLoRa() {
     }
     // print RSSI of packet
     //Read DATA From LoRa
-    for (int i = 0; i < sizeof(CardDataFromKapu); i++){
+    for (int i = 0; i < sizeof(CardDataFromKapu); i++)
+    {
       Serial.print(CardDataFromKapu[i], HEX);
     }
     Serial.print("' with RSSI ");
-   Serial.println(LoRa.packetRssi());
+    Serial.println(LoRa.packetRssi());
    ret = true;
   }
   return ret;
@@ -70,17 +72,17 @@ boolean ReceiveDataFromLoRa() {
 void ReceiveDataFromArduino() {
 
   uint8_t availableData = MEGA.available();
-  Serial.print("Available data: ");
-  Serial.println(availableData, HEX);
+  /*Serial.print("Available data: ");
+  Serial.println(availableData, HEX);*/
             
   
   while(MEGA.available() > 0)
   {    
     BackFromSenityStatus = MEGA.read();
-    Serial.print("Received data: ");
+    Serial.print("Received Data From InSide Arduino: ");
     Serial.println(BackFromSenityStatus, DEC);
     LoRa.beginPacket();
-    Serial.println("Send Data to Gate LoRa");
+    Serial.println("Send Recieved Data From Arduino to Gate LoRa.");
     //MEGA.println("Send Data to Gate LoRa");
     LoRa.write(BackFromSenityStatus);
     LoRa.endPacket();
