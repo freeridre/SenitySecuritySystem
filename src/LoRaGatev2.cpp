@@ -11,15 +11,18 @@ uint8_t CARDDATA[12]={255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255};
 uint8_t DATA;
 uint8_t availableData;
 int packetSize;
+byte AvailableDataFromSE;
 void LORASEND();
 void ReceiveDataFromGateArduino();
 void SendControlDataToArduino();
 boolean ReceiveDataFromInSideLoRa();
+#define RESETFROMARDUINO  111
 void setup()
 {
 MEGA.begin(115200,SERIAL_8N1, 36, 12); //RX, TX
 Heltec.begin(true /*DisplayEnable Enable*/, true /*Heltec.Heltec.Heltec.LoRa Disable*/, true /*Serial Enable*/, true /*PABOOST Enable*/, BAND /*long BAND*/);
-Serial.println("hello waiting for incoming data...");
+Serial.println("Hello It's LoRaOutSide.");
+Serial.println("Waiting For InComing Data...");
 }
 void loop()
 {
@@ -36,7 +39,22 @@ void ReceiveDataFromGateArduino()
   availableData = MEGA.available();
   //Serial.print("Available data: ");
   //Serial.println(availableData, HEX);
-  while(MEGA.available() > 0)
+  AvailableDataFromSE = MEGA.read();
+  while (AvailableDataFromSE == RESETFROMARDUINO)
+  {
+    
+    AvailableDataFromSE = 0;
+    MEGA.flush();
+    delay(2000);
+    Serial.println("LoRa OutSide Has Just Reseted! Cause of Arduino OutSide Reset!");
+    ESP.restart();
+    //loop();
+  }
+  availableData = MEGA.available();
+  //Serial.println("ITT2");
+  //while(1);
+  while(availableData > 0)
+  //while(MEGA.available() > 0)
   {
     for (int i = 2; MEGA.available() > 0; i++)
     {
@@ -62,7 +80,7 @@ void ReceiveDataFromGateArduino()
           CARDDATA[n] = 255;
         }
       }*/
-    Serial.println("----------------------------------------------------------------------");
+    Serial.println("Card Data From Gate: ");
     for (int x = 0; x < sizeof(CARDDATA); x++)
     {
         Serial.print("0x");
@@ -70,7 +88,6 @@ void ReceiveDataFromGateArduino()
         Serial.print(" ");
     }
     Serial.println(" ");
-    Serial.println("----------------------------------------------------------------------");
     Serial.println();
     LORASEND();
   }
@@ -79,11 +96,11 @@ void ReceiveDataFromGateArduino()
 void LORASEND()
 {
     LoRa.beginPacket();
-    Serial.println("Send data to inside LoRa.");
+    Serial.println("Send Card Data From Gate To Inside LoRa.");
     LoRa.write(CARDDATA, sizeof(CARDDATA));
     LoRa.endPacket();
-    Serial.println("Data has sent to inside LoRa.");
-    Serial.println("Released Card Data:");
+    Serial.println("Data Has Sent To InSide LoRa.");
+    Serial.println("Released Card Data Buffer: ");
     for (int i = 2; i < sizeof(CARDDATA); i++)
     {
       CARDDATA[i] = 0;
@@ -102,7 +119,7 @@ boolean ReceiveDataFromInSideLoRa()
   if (packetSize)
   {
      // received a packet
-    Serial.print("Received packet \n");
+    Serial.print("Received Packet From InSide LoRa: ");
     // read packet
     while (LoRa.available())
     {
