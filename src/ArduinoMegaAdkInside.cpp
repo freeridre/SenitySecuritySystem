@@ -17,6 +17,8 @@
 #define PN532_MOSI (51)
 #define PN532_SS   (53)
 #define PN532_MISO (50)
+//LoRa Reset
+#define LORA_RESET 112
 //Make NFC object
 Adafruit_PN532 nfc(PN532_SCK, PN532_MISO, PN532_MOSI, PN532_SS);
 //Card Loading --4096 Bytes--
@@ -51,8 +53,8 @@ int ten = 10;
 int eleven = 11;
 uint8_t IntegerDataStringArray1[4] = {};
 //LoRa
-uint8_t byteFromESP32 [12] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-int Status;
+uint8_t byteFromESP32 [18] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+byte Status;
 //const int eeAddress;
 //User Serial Input
 int input_a = 0;
@@ -71,6 +73,11 @@ int main_menu = 1;
 void readfromoutsideLoRa();
 void CardLearningV2();
 void AccessControl();
+void LoRaReset()
+{
+  Serial1.write(LORA_RESET);
+  Serial.println("LoRa Has Just Reseted. Cause: Arduino Inside Has Reseted.");
+}
 void CardReadOut()
 {
   Serial.println("EEPROM READ OUT ALL ONLY REGISTERED CARDS!\n");
@@ -109,7 +116,7 @@ void CardReadOut()
    while (6 != 7)
     {
       input_a = Serial.read();
-        if (input_a == 6)
+        if (input_a == '6')
         {
           main_menu = 1;
           loop();
@@ -160,7 +167,7 @@ void EEPROMREADOUTALL()
    while (6 != 7)
     {
       input_a = Serial.read();
-        if (input_a == 6)
+        if (input_a == '6')
         {
           main_menu = 1;
           loop();
@@ -357,76 +364,128 @@ return;
 */
 void AccessControl()
 {
- do
- {
-    nfc.SAMConfig();
-    //kártyadb bekerese EEPROMbol, illetve kartya kerese
-    kartyadb = EEPROM.read(kartyadbeeprom);
-    
-    Serial.println("-------------------------------------------------------------------------------");
-    Serial.print("Kerem a "); Serial.print("taget/kartyat. \n");
-    Serial.println("Helyezd az ISO14443A kartyat az olvasohoz ...");
-    //Scan RFID UID
-    success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength, Timeout);
-    Serial.println("A taget/kartyat beolvastuk! \n");
-    
-    //Leellenorizzuk, hogy mar fel van-e veve ez a UID
-    byte value;
-    //Az első kettő FF, FF
-    int ID = 3;
-    carddb = kartyadb * uidLength;
-    address = 0;
-    for (int i = 0; i < carddb; i++)
+    do
     {
-      value = EEPROM.read(address);
-      if(value == byteFromESP32[ID])
+    Serial.println("Attempt to open the door at: ");
+      
+        //Serial.print(byteFromESP32[o], DEC);
+        //Year
+        if (byteFromESP32[9] < 2100)
+        {
+          Serial.print(20, DEC);Serial.print(byteFromESP32[9], DEC);Serial.print(".");
+        }
+        //month
+        if (byteFromESP32[10] < 10)
+        {
+          Serial.print(0, DEC);
+        }
+        Serial.print(byteFromESP32[10], DEC);Serial.print(".");
+        //day
+        if (byteFromESP32[11] < 10)
+        {
+          Serial.print(0, DEC);
+        }
+        Serial.print(byteFromESP32[11], DEC);Serial.print(".");
+        //dayofweek
+          Serial.print(" (");Serial.print(byteFromESP32[12], DEC);Serial.print(") ");
+          //hour
+        if (byteFromESP32[13] < 10)
+        {
+          Serial.print(0, DEC);
+        }
+        Serial.print(byteFromESP32[13], DEC);Serial.print(":");
+          //minutes
+        if (byteFromESP32[14] < 10)
+        {
+          Serial.print(0, DEC);
+        }
+        Serial.print(byteFromESP32[14], DEC);Serial.print(":");
+        //seconds
+        if (byteFromESP32[15] < 10)
+        {
+          Serial.print(0, DEC);
+        }
+        Serial.print(byteFromESP32[15], DEC);Serial.println();
+      
+      nfc.SAMConfig();
+      //kártyadb bekerese EEPROMbol, illetve kartya kerese
+      kartyadb = EEPROM.read(kartyadbeeprom);
+      Serial.println();
+      //Serial.println("-------------------------------------------------------------------------------");
+      //Serial.print("Kerem a "); Serial.print("taget/kartyat. \n");
+      //Serial.println("Helyezd az ISO14443A kartyat az olvasohoz ...");
+      //Serial.println("Waiting for incoming Data");
+
+      //Scan RFID UID
+      //success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength, Timeout);
+      Serial.println("A taget/kartyat beolvastuk! \n");
+      
+      //Leellenorizzuk, hogy mar fel van-e veve ez a UID
+      byte value;
+      //Az első kettő FF, FF
+      int ID = 2;
+      carddb = kartyadb * uidLength;
+      address = 0;
+      for (int i = 0; i < carddb; i++)
       {
-        Serial.println("||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| \n");
-        Serial.print("A UID "); Serial.print(ID); Serial.print(". "); Serial.print("byte-ja benne van az EEPROM "); Serial.print(address);Serial.print(". "); Serial.print("cimeben! \n");
-        ID++, address++;
-        //Serial.println("Find the"); Serial.print(ID); Serial.print(" byte.");
         value = EEPROM.read(address);
         if(value == byteFromESP32[ID])
         {
-          Serial.println("||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| \n");
-          Serial.print("A UID "); Serial.print(ID); Serial.print(". "); Serial.print("byte-ja benne van az EEPROM "); Serial.print(address);Serial.print(". "); Serial.print("cimeben! \n");
+          /*Serial.println("||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| \n");
+          Serial.print("A UID "); Serial.print(ID-1); Serial.print(". "); Serial.print("byte-ja benne van az EEPROM "); Serial.print(address);Serial.print(". "); Serial.print("cimeben! \n");*/
           ID++, address++;
+          //Serial.println("Find the"); Serial.print(ID); Serial.print(" byte.");
           value = EEPROM.read(address);
           if(value == byteFromESP32[ID])
           {
-            Serial.println("||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| \n");
-            Serial.print("A UID "); Serial.print(ID); Serial.print(". "); Serial.print("byte-ja benne van az EEPROM "); Serial.print(address);Serial.print(". "); Serial.print("cimeben! \n");
+            /*Serial.println("||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| \n");
+            Serial.print("A UID "); Serial.print(ID-1); Serial.print(". "); Serial.print("byte-ja benne van az EEPROM "); Serial.print(address);Serial.print(". "); Serial.print("cimeben! \n");*/
             ID++, address++;
             value = EEPROM.read(address);
             if(value == byteFromESP32[ID])
             {
-              Serial.println("||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| \n");
-              Serial.print("A UID "); Serial.print(ID); Serial.print(". "); Serial.print("byte-ja benne van az EEPROM "); Serial.print(address);Serial.print(". "); Serial.print("cimeben! \n");
+              /*Serial.println("||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| \n");
+              Serial.print("A UID "); Serial.print(ID-1); Serial.print(". "); Serial.print("byte-ja benne van az EEPROM "); Serial.print(address);Serial.print(". "); Serial.print("cimeben! \n");*/
               ID++, address++;
               value = EEPROM.read(address);
-              Serial.println("Passed! \n");
-              //Itt van a hiba!!
-              //RelayBuzzer();
-              //vissza a LoRa-ra
-              Status = 12;
-              digitalWrite(35, HIGH);
-              //delay(2000);
-              Serial1.write(Status);
-              Serial.print("Status "); Serial.print(Status); Serial.print(" has written back to LoRa! \n");
-              digitalWrite(35, LOW);
-              Serial.println("Waiting for incoming data...");
-              
-              return;
-              
-              digitalWrite(36, HIGH);
-              delay(100);
-              digitalWrite(36, LOW);
-              //delay(2000);
-              Serial.println("Waiting for incoming data...");
-              //readfromoutsideLoRa();
-              return;
-              
-              //Serial.println("STOP!");
+              if(value == byteFromESP32[ID])
+              {
+                /*Serial.println("||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| \n");
+                Serial.print("A UID "); Serial.print(ID-1); Serial.print(". "); Serial.print("byte-ja benne van az EEPROM "); Serial.print(address);Serial.print(". "); Serial.print("cimeben! \n");*/
+                ID++, address++;
+                value = EEPROM.read(address);
+                Serial.println("Passed! \n");
+                //Itt van a hiba!!
+                //RelayBuzzer();
+                //vissza a LoRa-ra
+                Status = 12;
+                digitalWrite(35, HIGH);
+                //delay(2000);
+                Serial1.write(Status);
+                Serial1.flush();
+                Serial.print("Status "); Serial.print(Status); Serial.print(" has written back to LoRa! \n");
+                digitalWrite(35, LOW);
+                for(int zi = 0; zi < sizeof(byteFromESP32); zi++)
+                {
+                  byteFromESP32[zi] = 0;
+                }
+                //Serial.println("Waiting for incoming data...");
+                Serial.println("-------------------------------------------------------------------------------");
+                Serial.println("Waiting for incoming data...");
+                readfromoutsideLoRa();
+                return;
+                
+                /*digitalWrite(36, HIGH);
+                delay(100);
+                digitalWrite(36, LOW);
+                //delay(2000);
+                Serial.println("Waiting for incoming data...");
+                readfromoutsideLoRa();
+                return;*/
+                
+                //Serial.println("STOP!");
+              }
+              address++;
             }
             address++;
           }
@@ -434,23 +493,27 @@ void AccessControl()
         }
         address++;
       }
-      address++;
-    }
-    Serial.println("Nem jogosult! \n");
-    //delay(2000);
-    Status = 11;
-    digitalWrite(35, HIGH);
-    Serial1.write(Status);
-    Serial.print("Status "); Serial.print(Status); Serial.print(" has written back to LoRa! \n");
-    digitalWrite(35, LOW);
-    Serial.println("Waiting for incoming data...");
-    return;
-  }while (10 != 11);
+      Serial.println("Nem jogosult! \n");
+      //delay(2000);
+      Status = 11;
+      digitalWrite(35, HIGH);
+      Serial1.write(Status);
+      Serial1.flush();
+      Serial.print("Status "); Serial.print(Status); Serial.print(" has written back to LoRa! \n");
+      digitalWrite(35, LOW);
+      for(int zi = 0; zi < sizeof(byteFromESP32); zi++)
+                {
+                  byteFromESP32[zi] = 0;
+                }
+      Serial.println("-------------------------------------------------------------------------------");
+      Serial.println("Waiting for incoming data...");
+      return;
+    }while (10 != 11);
 }
 void readfromoutsideLoRa()
 {
     input_a = Serial.read();
-    if (input_a == 6)
+    if (input_a == '6')
     {
       main_menu = 1;
       loop();
@@ -461,33 +524,197 @@ void readfromoutsideLoRa()
     {
       //Orange Led shows serial communication progress
       digitalWrite(35, HIGH);
-      byteFromESP32[i] = Serial1.read();     
-      Serial.print(byteFromESP32[i], HEX);
+      while(Serial1.available() > 0)
+      {
+      byteFromESP32[i] = Serial1.read();
+      Serial.print("0x"); Serial.print(byteFromESP32[i], HEX); Serial.print(" ");
       i += 1;
+      }
+      //Opened Door
+      if(byteFromESP32[0] == 111 && byteFromESP32[1] == 111 && byteFromESP32[2] == 255)
+      {
+        i = 1;
+        Serial.print("The Door is Opened at: ");
+        ///////
+        //Year
+        if (byteFromESP32[3] < 2100)
+        {
+          Serial.print(20, DEC);Serial.print(byteFromESP32[3], DEC);Serial.print(".");
+        }
+        //month
+        if (byteFromESP32[4] < 10)
+        {
+          Serial.print(0, DEC);
+        }
+        Serial.print(byteFromESP32[4], DEC);Serial.print(".");
+        //day
+        if (byteFromESP32[5] < 10)
+        {
+          Serial.print(0, DEC);
+        }
+        Serial.print(byteFromESP32[5], DEC);Serial.print(".");
+        //dayofweek
+          Serial.print(" (");Serial.print(byteFromESP32[6], DEC);Serial.print(") ");
+          //hour
+        if (byteFromESP32[7] < 10)
+        {
+          Serial.print(0, DEC);
+        }
+        Serial.print(byteFromESP32[7], DEC);Serial.print(":");
+          //minutes
+        if (byteFromESP32[8] < 10)
+        {
+          Serial.print(0, DEC);
+        }
+        Serial.print(byteFromESP32[8], DEC);Serial.print(":");
+        //seconds
+        if (byteFromESP32[9] < 10)
+        {
+          Serial.print(0, DEC);
+        }
+        Serial.print(byteFromESP32[9], DEC);Serial.println();
+        //////
+        //Release Data
+        for (int z = 0; z < sizeof(byteFromESP32); z++)
+        {
+          byteFromESP32[z] = 0;
+        }
+        Serial.println("Waiting for incoming Data");
+      }
+      //Closed Door
+      else if(byteFromESP32[0] == 111 && byteFromESP32[1] == 111 && byteFromESP32[2] == 254)
+      {
+        i = 1;
+        Serial.print("The Door is Closed afrter longterm Open Status at: ");
+        ///////
+        //Year
+        if (byteFromESP32[3] < 2100)
+        {
+          Serial.print(20, DEC);Serial.print(byteFromESP32[3], DEC);Serial.print(".");
+        }
+        //month
+        if (byteFromESP32[4] < 10)
+        {
+          Serial.print(0, DEC);
+        }
+        Serial.print(byteFromESP32[4], DEC);Serial.print(".");
+        //day
+        if (byteFromESP32[5] < 10)
+        {
+          Serial.print(0, DEC);
+        }
+        Serial.print(byteFromESP32[5], DEC);Serial.print(".");
+        //dayofweek
+          Serial.print(" (");Serial.print(byteFromESP32[6], DEC);Serial.print(") ");
+          //hour
+        if (byteFromESP32[7] < 10)
+        {
+          Serial.print(0, DEC);
+        }
+        Serial.print(byteFromESP32[7], DEC);Serial.print(":");
+          //minutes
+        if (byteFromESP32[8] < 10)
+        {
+          Serial.print(0, DEC);
+        }
+        Serial.print(byteFromESP32[8], DEC);Serial.print(":");
+        //seconds
+        if (byteFromESP32[9] < 10)
+        {
+          Serial.print(0, DEC);
+        }
+        Serial.print(byteFromESP32[9], DEC);Serial.println();
+        //////
+        //Release Data
+        for (int z = 0; z < sizeof(byteFromESP32); z++)
+        {
+          byteFromESP32[z] = 0;
+        }
+        Serial.println("Waiting for incoming Data");
+      }
+      //Button pressed
+      else if (byteFromESP32[0] == 111 && byteFromESP32[1] == 111 && byteFromESP32[2] == 253)
+      {
+        i = 1;
+        Serial.print("The OutSide Button pressed at: ");
+        ///////
+        //Year
+        if (byteFromESP32[3] < 2100)
+        {
+          Serial.print(20, DEC);Serial.print(byteFromESP32[3], DEC);Serial.print(".");
+        }
+        //month
+        if (byteFromESP32[4] < 10)
+        {
+          Serial.print(0, DEC);
+        }
+        Serial.print(byteFromESP32[4], DEC);Serial.print(".");
+        //day
+        if (byteFromESP32[5] < 10)
+        {
+          Serial.print(0, DEC);
+        }
+        Serial.print(byteFromESP32[5], DEC);Serial.print(".");
+        //dayofweek
+          Serial.print(" (");Serial.print(byteFromESP32[6], DEC);Serial.print(") ");
+          //hour
+        if (byteFromESP32[7] < 10)
+        {
+          Serial.print(0, DEC);
+        }
+        Serial.print(byteFromESP32[7], DEC);Serial.print(":");
+          //minutes
+        if (byteFromESP32[8] < 10)
+        {
+          Serial.print(0, DEC);
+        }
+        Serial.print(byteFromESP32[8], DEC);Serial.print(":");
+        //seconds
+        if (byteFromESP32[9] < 10)
+        {
+          Serial.print(0, DEC);
+        }
+        Serial.print(byteFromESP32[9], DEC);Serial.println();
+        //////
+        //Release Data
+        for (int z = 0; z < sizeof(byteFromESP32); z++)
+        {
+          byteFromESP32[z] = 0;
+          Serial.print(byteFromESP32[z]);
+        }
+        Serial.println();
+        Serial.println("Waiting for incoming Data");
+      }     
     }
     digitalWrite(35, LOW);
+//Release Data
     
-    if(i != 0)
+    
+    if ( byteFromESP32[0] == 255 && byteFromESP32[1] == 255)
     {
-        Serial.print('\n');
-        Serial.print("Bytes received: ");
-        Serial.print(i, DEC);
-        Serial.print('\n');
-        Serial.print('\n');
-      //int x = 2;
-      uidLength = 0;
-      for (int x = 2; x < 8; x++)
+      Serial.println("Itt vagyok");
+      if(i != 0)
       {
-      uint8_t uid_lenght = byteFromESP32[x];
-        if (uid_lenght > 0)
+          Serial.print('\n');
+          Serial.print("Bytes received: ");
+          Serial.print(i, DEC);
+          Serial.print('\n');
+          Serial.print('\n');
+        //int x = 2;
+        uidLength = 0;
+        for (int x = 2; x < 8; x++)
         {
-          uidLength++;
+        uint8_t uid_lenght = byteFromESP32[x];
+          if (uid_lenght > 0)
+          {
+            uidLength++;
+          }
         }
+        Serial.print("UID Lenght: "); Serial.println(uidLength);
+        //uidLength = 0;
+        AccessControl();
+        //return;
       }
-      Serial.print("UID Lenght: "); Serial.println(uidLength);
-      //uidLength = 0;
-      AccessControl();
-      //return;
     }
   //}while(1 > 0);
   readfromoutsideLoRa();
@@ -513,6 +740,8 @@ void setup() {
   pinMode(36, OUTPUT);
   pinMode(35, OUTPUT);
   pinMode(4, OUTPUT);
+  //LoRa Reset
+  LoRaReset();
   //NFC Module Init
   NFCINITIALIZE ();
   /*
@@ -540,23 +769,24 @@ void loop()
   input_a = 0;
   }
     input_a = Serial.read();
-    if (input_a == 1)
+    input_a = '5';
+    if (input_a == '1')
     {
       CardLearningV2();
     }
-    else if(input_a == 2)
+    else if(input_a == '2')
     {
       CardReadOut();
     }
-    else if(input_a == 3)
+    else if(input_a == '3')
     {
       EEPROMDELETE();
     }
-    else if(input_a == 4)
+    else if(input_a == '4')
     {
       EEPROMREADOUTALL();
     }
-    else if(input_a == 5)
+    else if(input_a == '5')
     {
       Serial.println("Waiting for incoming data...");
       readfromoutsideLoRa();
@@ -579,7 +809,7 @@ do
     //**tag = myRfid.getTag();
     input_a = Serial.read();
     //Serial.println("Waiting for Card...");
-      if (input_a == 6)
+      if (input_a == '6')
       {
         main_menu = 1;
         input_a = 0;
