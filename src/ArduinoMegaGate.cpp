@@ -3,11 +3,11 @@
 #include <Wire.h>
 #include <SPI.h>
 #include <Adafruit_PN532.h>
-#include "Nextion.h"
 #include "SparkFun_Qwiic_Rfid.h"
-#include <SoftwareSerial.h>
+#include <Softwareserial.h>
 #include <Adafruit_Fingerprint.h>
 #include <FastLED.h>
+#include "RTClib.h"
 #define LED_PIN               30
 #define NUM_LEDS              12
 #define BRIGHTNESS1           255
@@ -22,13 +22,22 @@ int brightness = 0;
 //#define FRAMES_PER_SECOND     120
 CRGB leds[NUM_LEDS];
 int WS2812BTrunOff = 0;
+byte FASTLED_FADE_COUNTER = 0;
+byte FASTLED_FADE_COUNTER2 = 0;
+byte FASTLED_FADE_SPEED = 5;
+byte FASTLED_FADE_COUNTER_STORE;
+byte LEDCOUNT = 0;
 uint8_t hue = 0;
 void sinelon();
 uint8_t gHue = 50;
 SoftwareSerial FingerPrintSerial(12, 13); // RX, TX
 Adafruit_Fingerprint FingerPrint = Adafruit_Fingerprint(&FingerPrintSerial);
 SoftwareSerial HC05JDY30(10, 11); // RX, TX
-
+//Define Flags
+//if Datapackage[2] == 255 Door opened at
+//if Datapackage[2] == 254 Door closed at
+//if Datapackage[2] == 253 Outside button pushed
+//PN532 Configuration
 #define PN532_SCK  (52)
 #define PN532_MOSI (51)
 #define PN532_SS   (53)
@@ -39,7 +48,12 @@ int uidsendtolora = 0;
 uint8_t success;
 uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
 uint8_t uidLength, timeout;                        // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
+uint8_t uidDataPackage[] = {255, 255, 0, 0, 0, 0, 0, 0, 0};
+byte uidBytesCount = 0;
+uint8_t CardExtension [3] = {0, 0, 0};
+byte uidLengthplus = 0;
 //BUZZER INIT
+void BuzzerCarding();
 int On = 255, Off = 0, Standby = 50;
 int BuzzerOn = 0, BuzzerOff = 255;
 int BuzzerFrequency1 = 2000; int BuzzerFrequency2 = 2100; int BuzzerFrequency3 = 2200; int BuzzerFrequency4 = 2300; int BuzzerFrequency5 = 2400;
@@ -48,6 +62,9 @@ int RedPin = 2;
 int GreenPin = 4;
 int BluePin = 3;
 int MagneticLock = 5;
+//Button init
+//                              sig, sig, inf
+uint8_t ButtonDataPackage[3] = {111, 111, 253};
 int Button = 7;
 int ButtonVal;
 int ButtonValToDoorControl;
@@ -58,20 +75,34 @@ unsigned int PIRStat2 = 0;
 unsigned int CountPir = 0;
 unsigned int PIRStateControl, ReturnMOTIONPIR;
 unsigned int WaitingPIR, WaitingPIR2, WaitingCardReading, WaitingCardReading2, osszeg = 0, CountDownReader = 3;
+//RTC DS3231 Configuration
+RTC_DS3231 rtc;
+uint8_t DS3231Time[] = {0, 0, 0, 0, 0, 0, 0};
+uint8_t DS3231TimeCurrentTime[] = {0, 0, 0, 0, 0, 0, 0};
+DateTime now;
 //LoRa Seetings
-#define LORA_RESET 111
+uint8_t LORA_RESET[3] = { 111, 111, 111};
 //How much time after Motion detect.
 unsigned int PowerOnTime = 100;
 //MagnetReed
 const int Reed = 9;
+int RerturnDoorTimeOutCardReading;
 int ReedState;
 unsigned long SecondTime;
 //How much time after opened door
-unsigned long WaitingOpenedDoor = 150;
+unsigned long WaitingOpenedDoor = 300; //150 = 8 ms; 18 = 1ms
+int PrevTimeDoorOpenedMillis = 0;
+int CurrentTimeDoorOpenedMillis = 0;
+//                                           sig, sig, inf
+uint8_t DOORSTATUS__CLOSED_DATAPACKAGE[3] = {111, 111, 254};
+uint8_t DOORSTATUS_OPENED_DATAPACKAGE[3] = {111, 111, 255};
+//DoorOpenedStat
+byte DOORSTATUS = 9;
+byte DoorOpenedStatus = 0;
 //Enable opened door detection 0 - no, 1 - BuzzerWithLeds, 2 - noBuzzer
-byte DoorOpenedEnable = 1;
+#define DOOROPENEDENABLE 1
 unsigned long FirstTime;
-unsigned long DoorTimeOut;
+unsigned long DoorTimeOut = 0;
 unsigned long ReturnDoorTimeOut;
 unsigned int DoorOpenStatusForWS2812B = 0;
 unsigned long FunctionReturnDoorTimeOut;
@@ -99,6 +130,8 @@ unsigned int i = 0;
 //TIMER INIT
 unsigned long currentMillis;
 unsigned long time_half_second = 5000;
+void TimeStamp();
+void TimeNow();
 boolean cardreading ();
 void NFCINITIALIZE ();
 void senddatatolora();
@@ -117,11 +150,12 @@ unsigned long OpenedDoorOnTime = 250;
 unsigned long OpenedDoorOffTime = 250;
 unsigned long OffTime = 1000;
 boolean DoorOpenState = false;
+void WS2812BYellow2();
 void LoRaReset ()
 {
-  Serial1.write(LORA_RESET);
+  Serial1.write(LORA_RESET, sizeof(LORA_RESET));
   Serial.println("LoRa Has Just Reseted. Cause: Arduino Gate Has Reseted.");
-  Serial1.flush();
+  //Serial1.flush();
 }
 void WS2812BBlack()
 {
@@ -150,6 +184,23 @@ void WS2812BYellow()
    {
     leds[i] = CRGB::Yellow;  // Set Color HERE!!!
   }
+  FastLED.show();
+}
+void WS2812BYellow2()
+{
+   for(int i = 0; i < NUM_LEDS; i++ )
+   {
+    leds[i] = CRGB::Yellow;  // Set Color HERE!!!
+    leds[i].fadeLightBy(brightness);
+  }
+  FastLED.show();
+  brightness = brightness + fadeAmount;
+  // reverse the direction of the fading at the ends of the fade: 
+  if(brightness == 0 || brightness == 255)
+  {
+    fadeAmount = -fadeAmount ; 
+  }    
+  delay(50);
 }
 void WS2812BBlue()
 {
@@ -178,12 +229,60 @@ void WS2812BBlue()
       leds[11] = CRGB::Blue; leds[11].maximizeBrightness(FastLED_fade_in_counter);
     }*/
 
-
-
-  for(int i = 0; i < NUM_LEDS; i++ )
+///////////////////////////////////////////////////////////////////////////////////////////////////
+  
+  for (int i = 0; i < NUM_LEDS; i++)
+  {
+    leds[i] = CRGB::Blue;
+    leds[i].maximizeBrightness(FASTLED_FADE_COUNTER);
+  }
+  FASTLED_FADE_COUNTER = + FASTLED_FADE_SPEED;
+  if (FASTLED_FADE_COUNTER == 255)
+  {
+    FASTLED_FADE_COUNTER = 0;
+  }
+  FastLED.show();
+///////////////////////////////////////////////////////////////////////////////////////////////////
+for(int i = 0; i < NUM_LEDS; i++ )
    {
     leds[i] = CRGB::Blue;  // Set Color HERE!!!
     leds[i].fadeLightBy(brightness);
+    
+  }
+  FastLED.show();
+  brightness = brightness + fadeAmount;
+  // reverse the direction of the fading at the ends of the fade: 
+  if(brightness == 0 || brightness == 255)
+  {
+    fadeAmount = -fadeAmount ; 
+    FASTLED_FADE_COUNTER = 0;
+  }    
+  delay(50);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+  /*for(int i = 0; i < NUM_LEDS; i++ )
+   {
+    leds[i] = CRGB::Blue;  // Set Color HERE!!!
+    leds[i].fadeLightBy(brightness);
+    
   }
   FastLED.show();
   brightness = brightness + fadeAmount;
@@ -192,8 +291,8 @@ void WS2812BBlue()
   {
     fadeAmount = -fadeAmount ; 
   }    
-  delay(50);  // This delay sets speed of the fade. I usually do from 5-75 but you can always go higher.
-
+  delay(50);*/  // This delay sets speed of the fade. I usually do from 5-75 but you can always go higher.
+///////////////////////////////////////////////////////////////////////////////////////////////////
 
 
 
@@ -243,7 +342,7 @@ int MOTIONPIR(int PIRStateControl)
     PIRStateControl = 1;
     return PIRStateControl;
   }
-  return 1;
+  //return 1;
 }
 void LedBuzzerOpenedGateTimeOut()
 {
@@ -259,7 +358,7 @@ void LedBuzzerOpenedGateTimeOut()
     //analogWrite(Buzzer, BuzzerOff);
     
     setColor(Off, Off, Off);
-    FastLED.clear(leds);
+    //FastLED.clear(leds);
     //Serial.println("AJJASJF");
     DoorOpenState = false;
     //Release Motion RGB RING Effect (Fades)
@@ -271,7 +370,7 @@ void LedBuzzerOpenedGateTimeOut()
     previousMillis = currentMillis;   // Remember the time
     //digitalWrite(ledPin, ledState);	  // Update the actual LED
     //analogWrite(Buzzer, BuzzerOn);
-    if (DoorOpenedEnable == 1)
+    if (DOOROPENEDENABLE == 1)
     {
       tone(Buzzer, BuzzerFrequency1);
     }
@@ -290,7 +389,7 @@ void LedBuzzerOpenedGateTimeOut()
   delay(250);*/
   //Release Motion RGB RING Effect (Fades)
   PIRStat2 = 0;
-  
+  FastLED.clear();
 }
 void LedBuzzerAccessGranted()
 {
@@ -382,6 +481,13 @@ void setup()
   Serial.begin(115200);
   Serial1.begin(115200);
   Serial.println("Hello!");
+  if (! rtc.begin())
+  {
+    Serial.println("Couldn't find RTC");
+    while (1);
+  }else
+  Serial.println("RTC Has just Started!");
+  TimeNow();
   LoRaReset();
   delay(2000);
   //**Wire.begin();
@@ -439,29 +545,47 @@ void HC05JDY30FUNCTION()
 }
 int DoorOpenedTimeOut(int ReturnDoorTimeOut)
 {
-  if (DoorOpenedEnable == 1)
+  /////////////////////////////////////////////////////////////////////
+  if (DOOROPENEDENABLE == 1)
   {  
-    
     ReedState = digitalRead(Reed);
+    //DOORSTATUS = 9;
     if (ReedState == HIGH)
     {
+      
       if (DoorOpenStatusForWS2812B != 1 )
       {
         sinelon();
         
       }
-     
       ReedState = digitalRead(Reed);
       DoorTimeOut++;
       /*Serial.print(DoorTimeOut);*/
-      Serial.println(" Opened");
+      /*CurrentTimeDoorOpenedMillis = millis();
+      Serial.print("Current Millis: "); Serial.println(millis());*/
+      //if (CurrentTimeDoorOpenedMillis >= WaitingOpenedDoor)
+      Serial.println(DoorTimeOut);
       if (DoorTimeOut >= WaitingOpenedDoor)
       {
+        //PrevTimeDoorOpenedMillis = CurrentTimeDoorOpenedMillis;
+        //Nem fog túlcsordulni
+        if(DOORSTATUS >= 10)
+        {
+          DOORSTATUS = 10;
+        }else if (DOORSTATUS <= 8)
+        {
+          DOORSTATUS = 9;
+        }
+        //DoorOpenedStatus = 1;
+        //Serial.println("The Door is Opened!");
         ReedState = digitalRead(Reed);
         DoorTimeOut--;
+        //DoorTimeOut = 0;
         DoorOpenStatusForWS2812B = 1;
         LedBuzzerOpenedGateTimeOut();
-
+        DOORSTATUS++;
+        //Serial.print("When it's Opened1: ");Serial.println(DOORSTATUS);
+        //delay(100);
         return ReturnDoorTimeOut = 1;
         /*if (ReedState == LOW)
         {
@@ -470,12 +594,31 @@ int DoorOpenedTimeOut(int ReturnDoorTimeOut)
           setColor(Off, Off, Standby);
         }*/
       }
+      ReturnDoorTimeOut = 2;
     }
     else if (ReedState == LOW)
     {
-      ReedState = digitalRead(Reed);
+      //Serial.print("1st: ");Serial.println(DOORSTATUS);
+
+      if(DOORSTATUS >= 10)
+      {
+        DOORSTATUS = 8;
+      }
+      /*else if (DOORSTATUS < 8)
+      {
+        DOORSTATUS = 8;
+        
+      }else if(DOORSTATUS != 9)
+      {
+        DOORSTATUS--;
+      }*/
+      
+      //Serial.print("When it's Closed1: ");Serial.println(DOORSTATUS);
+      //Serial.println(DOORSTATUS);
+      //Serial.println("The Door is Closed!");
+      DoorOpenedStatus = 0;
+      //ReedState = digitalRead(Reed);
       DoorTimeOut = 0;
-      setColor(Off, Off, Standby);
       DoorOpenStatusForWS2812B = 0;
       //sinelon();
       //analogWrite(Buzzer, BuzzerOff);
@@ -486,10 +629,15 @@ int DoorOpenedTimeOut(int ReturnDoorTimeOut)
       Serial.println(" Locked");*/
       return ReturnDoorTimeOut = 0;
     }
-  }else if (DoorOpenedEnable == 0)
-  {
+  /////////////////////////////////////////////////////////////////////
 
-  }else if (DoorOpenedEnable == 2)
+  /////////////////////////////////////////////////////////////////////
+  }else if (DOOROPENEDENABLE == 0)
+  {
+  /////////////////////////////////////////////////////////////////////
+
+  /////////////////////////////////////////////////////////////////////
+  }else
   {
     ReedState = digitalRead(Reed);
     if (ReedState == HIGH)
@@ -533,6 +681,7 @@ int DoorOpenedTimeOut(int ReturnDoorTimeOut)
       return ReturnDoorTimeOut = 0;
     }
   }
+  /////////////////////////////////////////////////////////////////////
 }
 void loop()
 {
@@ -542,11 +691,14 @@ void loop()
   //**Serial.println(CountPir);
   currentMillis = millis();
   MOTIONPIR(PIRStateControl);
+  DoorOpenedTimeOut(ReturnDoorTimeOut);
   ReturnMOTIONPIR = MOTIONPIR(PIRStateControl);
   //Serial.print("ReturnMOTIONPIR: "); Serial.println(ReturnMOTIONPIR);
   int ReturnReturnDoorTimeOut = DoorOpenedTimeOut(ReturnDoorTimeOut);
+  //Closed Door
   if(ReturnReturnDoorTimeOut == 0)
   {
+    //Serial.print("When it's Closed2: ");Serial.println(DOORSTATUS);
     /*if (ReturnMOTIONPIR == 0)
     {
       //WaitingPIR = millis();
@@ -575,6 +727,16 @@ void loop()
     WaitingPIR2 = 0;
     WaitingPIR = 0;
     }*/
+//Serial.print("Zarva!"); Serial.println(DOORSTATUS);
+  if (DOORSTATUS == 8)
+      {
+        Serial.print("The Door is Closed at: ");
+        TimeStamp();
+        Serial1.write(DOORSTATUS__CLOSED_DATAPACKAGE, sizeof(DOORSTATUS__CLOSED_DATAPACKAGE));
+        Serial1.write(DS3231Time, sizeof(DS3231Time));
+        DOORSTATUS--;
+      }
+
     if (ReturnMOTIONPIR == 1)
     {
       PIRStat2 = 1;
@@ -608,16 +770,31 @@ void loop()
     {
       sinelon();
     }
+    //Opened Door
+  }else if (ReturnReturnDoorTimeOut == 1)
+  {
+    DoorOpenedStatus = 0;
+    //Serial.print("When it's Opened2: ");Serial.println(DOORSTATUS);
+    if (DOORSTATUS == 10)
+    {
+      Serial.print("The Door is Opened at: ");
+      TimeStamp();
+      Serial1.write(DOORSTATUS_OPENED_DATAPACKAGE, sizeof(DOORSTATUS_OPENED_DATAPACKAGE));
+      Serial1.write(DS3231Time, sizeof(DS3231Time));
+    }
   }
   if(cardreading())
     {
+      Serial.print("Carding at: ");
+      TimeStamp();
       senddatatolora();
     }
   RecieveDataFromGateLoRa();
   ButtonPushedOutSide();
   HC05JDY30FUNCTION();
-  DoorOpenedTimeOut(ReturnDoorTimeOut);
-  FastLED.show(leds);
+  
+  FastLED.show();
+  
 }
 void NFCINITIALIZE ()
 {
@@ -644,6 +821,8 @@ nfc.setPassiveActivationRetries(0x01);
   ReturnMOTIONPIR = MOTIONPIR(PIRStateControl);
   if (ReturnMOTIONPIR == 1)
   {*/
+  //*****************************************************************
+  //Innentől működő RFID 125KHZ olvasás, átalakítása 4byte UID
       /**tag = myRfid.getTag();
       if(tag.toInt() < 0)
       {
@@ -721,6 +900,7 @@ nfc.setPassiveActivationRetries(0x01);
         tag = "";
         return ret;
       }**/
+      //*****************************************************************************************
     // configure board to read RFID tags
     // Wait for an ISO14443A type cards (Mifare, etc.).  When one is found
     // 'uid' will be populated with the UID, and uidLength will indicate
@@ -730,17 +910,92 @@ nfc.setPassiveActivationRetries(0x01);
     // Display some basic information about the card
     if (uid[1] > 0)
       {
+        BuzzerCarding();
         Serial.println("Found an ISO14443A card");
         Serial.print("  UID Length: ");Serial.print(uidLength, DEC);Serial.println(" bytes");
         Serial.print("  UID Value: ");
         nfc.PrintHex(uid, uidLength);
-        Serial.println("");
+        //Serial.println("");
+
+        /*uidBytesCount = 0;
+        for(int hu = 0; hu <sizeof(uidLength); hu++)
+        {
+          if(uid[hu] > 0)
+          {
+            uidBytesCount++;
+          }
+        }
+        Serial.print("The uid contains: "); Serial.print(uidBytesCount); Serial.println(" bytes.");*/
+
         while (nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, &uid[0], &uidLength))
         {
-          
-          WS2812BBlue();
-          FastLED.show();
+          RerturnDoorTimeOutCardReading = DoorOpenedTimeOut(ReturnDoorTimeOut);
+          //ha nincs nyitva van, akkor legyen kek feny
+          //Serial.print("Door Return Byte: "); Serial.println(RerturnDoorTimeOutCardReading);
+          if (RerturnDoorTimeOutCardReading == 0)
+          {
+            //Serial.println("The Door is Closed 2!");
+            WS2812BBlue();
+            RerturnDoorTimeOutCardReading = 2;
+            
+
+            //ha nyitva van, akkor ne legyen kek feny
+          }else if (RerturnDoorTimeOutCardReading == 1)
+          {
+            //Serial.println("The Door is Opened 2!");
+            //LedBuzzerOpenedGateTimeOut();
+            WS2812BYellow2();
+            RerturnDoorTimeOutCardReading = 2;
+          }
+            WS2812BBlue();
         }
+        /*while (nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, &uid[0], &uidLength))
+        {
+          RerturnDoorTimeOutCardReading = DoorOpenedTimeOut(ReturnDoorTimeOut);
+          //ha nincs nyitva van, akkor legyen kek feny
+          //Serial.print("Door Return Byte: "); Serial.println(RerturnDoorTimeOutCardReading);
+          if (RerturnDoorTimeOutCardReading == 0)
+          {
+            //Serial.println("The Door is Closed 2!");
+            WS2812BBlue();
+            RerturnDoorTimeOutCardReading = 2;
+            
+
+            //ha nyitva van, akkor ne legyen kek feny
+          }else if (RerturnDoorTimeOutCardReading == 1)
+          {
+            //Serial.println("The Door is Opened 2!");
+            //LedBuzzerOpenedGateTimeOut();
+            WS2812BYellow2();
+            RerturnDoorTimeOutCardReading = 2;
+          }
+          /*else
+            WS2812BBlue();
+        }*/
+        //Serial.print("UIDLength: "); Serial.println(uidLength);
+        if(uidLength == 4)
+        {
+          uidLengthplus = uidLength+2;
+        }else if (uidLength == 7)
+        {
+          uidLengthplus = uidLength+2;
+        }
+        
+        for(int h = 2; h < uidLengthplus; h++)
+        {
+          uidDataPackage[h] = uid[uidBytesCount];
+          uidBytesCount++;
+          //Serial.print(uidDataPackage[h], HEX);Serial.print(" ");
+        }
+        Serial.println();
+        /*Serial.print("DataPackage is: ");
+        for(int hu = 0; hu < sizeof(uidDataPackage); hu++)
+        {
+          Serial.print(uidDataPackage[hu], HEX);Serial.print(" ");
+        }
+        Serial.println();*/
+
+        uidBytesCount = 0;
         ret = true;
       }
     else if (uid[1] == 0)
@@ -759,19 +1014,46 @@ nfc.setPassiveActivationRetries(0x01);
 }
   void senddatatolora()
   {
-    Serial1.write(uid, uidLength);
-    Serial.println("UID HAS SENT TO LORA!");
-    for (unsigned int i; i < sizeof(uid); i++)
+    //Serial1.write(uid, uidLength);
+    Serial1.write(uidDataPackage, sizeof(uidDataPackage));
+    /*if (uidLength == 4)
+    {
+      Serial1.write(CardExtension, sizeof(CardExtension));
+    }*/
+    Serial1.write(DS3231Time, sizeof(DS3231Time));
+    /*Serial.print("Uid 1st byte: "); Serial.println(uid[0], HEX);
+    Serial.print("Uid 2nd byte: "); Serial.println(uid[1], HEX);
+    Serial.print("Uid 3th byte: "); Serial.println(uid[2], HEX);
+    Serial.print("Uid 4th byte: "); Serial.println(uid[3], HEX);
+    Serial.print("Uid length: "); Serial.println(uidLength);*/
+    Serial.println("UID, and TimeStamp HAS SENT TO LORA!");
+    for (unsigned int i = 0; i < sizeof(uid); i++)
     {
       uid[i] = 0;
     }
     uidLength = 0;
-    for (unsigned int i; i < sizeof(uid); i++)
+    Serial.println("UID, and UIDLength HAS Been Cleared!");
+    for (unsigned int ib = 2; i < sizeof(uidDataPackage); i++)
     {
-      int UIDDelete = uid[i];
-      Serial.print(UIDDelete, HEX);
+      uidDataPackage[ib] = 0;
+    }
+    
+    Serial.println("UidDataPackage HAS Been Cleared!");
+    for (unsigned int i = 0; i < sizeof(uid); i++)
+    {
+      //int UIDDelete = uid[i];
+      Serial.print("0x");
+      Serial.print(uid[i], HEX);
     }
     Serial.print("\n");
+    for (unsigned int ib = 0; i < sizeof(uidDataPackage); i++)
+    {
+      //int UIDDelete = uidDataPackage[ib];
+      Serial.print("0x");
+      Serial.print(uidDataPackage[ib], HEX);
+    }
+    Serial.print("\n");
+    Serial.println();
     Serial.println("Waiting for a card...");
     //delay(1110);
     }
@@ -786,9 +1068,118 @@ void ButtonPushedOutSide ()
     {
         ControlData = 10;
         LedBuzzerAccessGranted();
-        Serial.println("Access Granted, door has just opened by Button!");
+        Serial.println("Access Granted, door has just opened by Buttonat: ");
+        TimeStamp();
+
+        Serial1.write(ButtonDataPackage, sizeof(ButtonDataPackage));
+        Serial1.write(DS3231Time, sizeof(DS3231Time));
         Serial.println("Waiting for an ISO14443A Card ...");
         ButtonValToDoorControl = 0;
     }
   }
+}
+void TimeNow()
+{
+  now = rtc.now();
+    if (rtc.lostPower())
+    {
+    Serial.println("RTC lost power, lets set the time!");
+    // following line sets the RTC to the date & time this sketch was compiled
+    //rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+    // This line sets the RTC with an explicit date & time, for example to set
+    // January 21, 2014 at 3am you would call:
+    // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
+    now = rtc.now().unixtime();
+  }
+  Serial.print("Current Date And Time: ");
+    Serial.print(now.year(), DEC);
+    Serial.print(".");
+    if(now.month() < 10)
+    {
+        Serial.print("0");
+    }
+    Serial.print(now.month(), DEC);
+    Serial.print(".");
+    if(now.day() < 10)
+    {
+        Serial.print("0");
+    }
+    Serial.print(now.day(), DEC);
+    Serial.print(". ");
+    Serial.print("(");
+    Serial.print(now.dayOfTheWeek(), DEC);
+    Serial.print(") ");
+    if(now.hour() < 10)
+    {
+        Serial.print("0");
+    }
+    Serial.print(now.hour(), DEC);
+    Serial.print(":");
+    if(now.minute() < 10)
+    {
+        Serial.print("0");
+    }
+    Serial.print(now.minute(), DEC);
+    Serial.print(":");
+    if(now.second() < 10)
+    {
+        Serial.print("0");
+    }
+    Serial.println(now.second(), DEC);
+    //delay(1000);
+}
+void TimeStamp()
+{
+    now = rtc.now();
+    //Serial.println("Time Stamp: ");
+    DS3231Time[0] = now.year()-2000; DS3231Time[1] = now.month(); DS3231Time[2] = now.day();
+    DS3231Time[3] = now.dayOfTheWeek(); DS3231Time[4] = now.hour(); DS3231Time[5] = now.minute(); DS3231Time[6] = now.second();
+    //Year
+    Serial.print(DS3231Time[0]);
+    Serial.print(".");
+    //Month
+    if(DS3231Time[1] < 10)
+    {
+        Serial.print("0");
+    }
+    Serial.print(DS3231Time[1], DEC);
+    Serial.print(".");
+    //Day
+    if(DS3231Time[2] < 10)
+    {
+        Serial.print("0");
+    }
+    Serial.print(DS3231Time[2], DEC);
+    Serial.print(". ");
+    //Day of the week
+    Serial.print("(");
+    Serial.print(DS3231Time[3], DEC);
+    Serial.print(") ");
+    //Hour
+    if(DS3231Time[4] < 10)
+    {
+        Serial.print("0");
+    }
+    Serial.print(DS3231Time[4], DEC);
+    Serial.print(":");
+    //Minute
+    if(DS3231Time[5] < 10)
+    {
+        Serial.print("0");
+    }
+    Serial.print(DS3231Time[5], DEC);
+    Serial.print(":");
+    //Second
+    if(DS3231Time[6] < 10)
+    {
+        Serial.print("0");
+    }
+    Serial.println(DS3231Time[6], DEC);
+}
+void BuzzerCarding()
+{
+  tone(Buzzer, BuzzerFrequency1);
+  delay(100);
+  noTone(Buzzer);
+  delay(100);
 }

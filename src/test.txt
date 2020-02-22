@@ -1,0 +1,33 @@
+#include <Arduino.h>
+byte DOORSTATUS = 9;
+byte Magnes;
+byte Manesido = 150;
+byte AjtoNyitva = 0;
+void setup (){}
+void loop ()
+{
+    //nyitva van
+    if (Magnes == HIGH)
+    {
+        AjtoNyitva++;
+        if(AjtoNyitva >= Manesido)
+        {
+            DOORSTATUS++;
+            //Buzzer, LED
+        }
+    }
+    //Zarva van
+    else if (Magnes == LOW)
+    {
+        DOORSTATUS = 9;
+        DOORSTATUS--;
+    }
+    if(DOORSTATUS == 10)
+    {
+        //kiirja az idot 1x
+    }
+    else if (DOORSTATUS == 8)
+    {
+        //kiirja 1x, hogy mikor csuktak be.
+    }
+}
