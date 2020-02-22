@@ -59,7 +59,7 @@ byte Status;
 //User Serial Input
 int input_a = 0;
 //EEPROM
-int address = 0;
+unsigned int address = 0;
 byte value;
 byte value2;
 byte value3;
@@ -128,7 +128,7 @@ void EEPROMDELETE()
 {
   address = 0;
   value = 0;
-  for (int i = 0; i < EEPROM.length(); i++)
+  for (unsigned int i = 0; i < EEPROM.length(); i++)
   {
     
     EEPROM.write(i, value);
@@ -149,7 +149,7 @@ void EEPROMREADOUTALL()
 {
   Serial.println("EEPROM READ OUT ALL!\n");
   address = 0;
-  for (int i = 0; i<EEPROM.length(); i++)
+  for (unsigned int i = 0; i<EEPROM.length(); i++)
   {
     value = EEPROM.read(address);
     Serial.print(address);
@@ -429,7 +429,28 @@ void AccessControl()
       for (int i = 0; i < carddb; i++)
       {
         value = EEPROM.read(address);
-        if(value == byteFromESP32[ID])
+        if(byteFromESP32[ID] == 8)
+        {
+          Serial.println("Passed! \n");
+          Serial.println("It's an android Phone!");
+                Status = 12;
+                digitalWrite(35, HIGH);
+                //delay(2000);
+                Serial1.write(Status);
+                Serial1.flush();
+                Serial.print("Status "); Serial.print(Status); Serial.print(" has written back to LoRa! \n");
+                digitalWrite(35, LOW);
+                for(unsigned int zi = 0; zi < sizeof(byteFromESP32); zi++)
+                {
+                  byteFromESP32[zi] = 0;
+                }
+                //Serial.println("Waiting for incoming data...");
+                Serial.println("-------------------------------------------------------------------------------");
+                Serial.println("Waiting for incoming data...");
+                readfromoutsideLoRa();
+                return;
+        }
+        else if(value == byteFromESP32[ID])
         {
           /*Serial.println("||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| \n");
           Serial.print("A UID "); Serial.print(ID-1); Serial.print(". "); Serial.print("byte-ja benne van az EEPROM "); Serial.print(address);Serial.print(". "); Serial.print("cimeben! \n");*/
@@ -465,7 +486,7 @@ void AccessControl()
                 Serial1.flush();
                 Serial.print("Status "); Serial.print(Status); Serial.print(" has written back to LoRa! \n");
                 digitalWrite(35, LOW);
-                for(int zi = 0; zi < sizeof(byteFromESP32); zi++)
+                for(unsigned int zi = 0; zi < sizeof(byteFromESP32); zi++)
                 {
                   byteFromESP32[zi] = 0;
                 }
@@ -501,7 +522,7 @@ void AccessControl()
       Serial1.flush();
       Serial.print("Status "); Serial.print(Status); Serial.print(" has written back to LoRa! \n");
       digitalWrite(35, LOW);
-      for(int zi = 0; zi < sizeof(byteFromESP32); zi++)
+      for(unsigned int zi = 0; zi < sizeof(byteFromESP32); zi++)
                 {
                   byteFromESP32[zi] = 0;
                 }
@@ -519,7 +540,7 @@ void readfromoutsideLoRa()
       loop();
       return;
     }
-    char i = 0;
+    unsigned int i = 0;
     while(Serial1.available() > 0)
     {
       //Orange Led shows serial communication progress
@@ -575,7 +596,7 @@ void readfromoutsideLoRa()
         Serial.print(byteFromESP32[9], DEC);Serial.println();
         //////
         //Release Data
-        for (int z = 0; z < sizeof(byteFromESP32); z++)
+        for (unsigned int z = 0; z < sizeof(byteFromESP32); z++)
         {
           byteFromESP32[z] = 0;
         }
@@ -626,7 +647,7 @@ void readfromoutsideLoRa()
         Serial.print(byteFromESP32[9], DEC);Serial.println();
         //////
         //Release Data
-        for (int z = 0; z < sizeof(byteFromESP32); z++)
+        for (unsigned int z = 0; z < sizeof(byteFromESP32); z++)
         {
           byteFromESP32[z] = 0;
         }
@@ -677,14 +698,65 @@ void readfromoutsideLoRa()
         Serial.print(byteFromESP32[9], DEC);Serial.println();
         //////
         //Release Data
-        for (int z = 0; z < sizeof(byteFromESP32); z++)
+        for (unsigned int z = 0; z < sizeof(byteFromESP32); z++)
         {
           byteFromESP32[z] = 0;
           Serial.print(byteFromESP32[z]);
         }
         Serial.println();
         Serial.println("Waiting for incoming Data");
-      }     
+      }else if (byteFromESP32[0] == 111 && byteFromESP32[1] == 111 && byteFromESP32[2] == 99)
+      {
+        i = 1;
+        Serial.print("Door opened by smartphone app at: ");
+        ///////
+        //Year
+        if (byteFromESP32[3] < 2100)
+        {
+          Serial.print(20, DEC);Serial.print(byteFromESP32[3], DEC);Serial.print(".");
+        }
+        //month
+        if (byteFromESP32[4] < 10)
+        {
+          Serial.print(0, DEC);
+        }
+        Serial.print(byteFromESP32[4], DEC);Serial.print(".");
+        //day
+        if (byteFromESP32[5] < 10)
+        {
+          Serial.print(0, DEC);
+        }
+        Serial.print(byteFromESP32[5], DEC);Serial.print(".");
+        //dayofweek
+          Serial.print(" (");Serial.print(byteFromESP32[6], DEC);Serial.print(") ");
+          //hour
+        if (byteFromESP32[7] < 10)
+        {
+          Serial.print(0, DEC);
+        }
+        Serial.print(byteFromESP32[7], DEC);Serial.print(":");
+          //minutes
+        if (byteFromESP32[8] < 10)
+        {
+          Serial.print(0, DEC);
+        }
+        Serial.print(byteFromESP32[8], DEC);Serial.print(":");
+        //seconds
+        if (byteFromESP32[9] < 10)
+        {
+          Serial.print(0, DEC);
+        }
+        Serial.print(byteFromESP32[9], DEC);Serial.println();
+        //////
+        //Release Data
+        for (unsigned int z = 0; z < sizeof(byteFromESP32); z++)
+        {
+          byteFromESP32[z] = 0;
+          Serial.print(byteFromESP32[z]);
+        }
+        Serial.println();
+        Serial.println("Waiting for incoming Data");
+      }
     }
     digitalWrite(35, LOW);
 //Release Data
@@ -692,7 +764,7 @@ void readfromoutsideLoRa()
     
     if ( byteFromESP32[0] == 255 && byteFromESP32[1] == 255)
     {
-      Serial.println("Itt vagyok");
+      //Serial.println("Itt vagyok");
       if(i != 0)
       {
           Serial.print('\n');
