@@ -1,0 +1,22 @@
+//ESP32 LORA SIDE bent
+#include <HardwareSerial.h>
+#include "heltec.h"
+#define BAND 868E6   //433E6  //you can set band here directly,e.g. 868E6,915E6
+byte Data = 11;
+void LoRaSend();
+void setup()
+{
+    Heltec.begin(true /*DisplayEnable Enable*/, true /*Heltec.LoRa Disable*/, true /*Serial Enable*/, true /*PABOOST Enable*/, BAND /*long BAND*/);
+}
+void loop()
+{
+    LoRaSend();
+    delay(3000);
+}
+void LoRaSend()
+{
+    LoRa.beginPacket();
+    LoRa.write(Data);
+    LoRa.endPacket();
+    Serial.println("Data has sent!");
+}
