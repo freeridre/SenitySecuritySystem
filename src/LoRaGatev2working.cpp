@@ -1,6 +1,7 @@
 //ESP32 LORA SIDE kapu
 #include <HardwareSerial.h>
 #include "heltec.h"
+#include <esp_task_wdt.h>
 //#include "arduino.h"
 #define BAND 868E6   //433E6  //915E6
 HardwareSerial MEGA(1);
@@ -23,6 +24,7 @@ boolean ReceiveDataFromInSideLoRa();
 #define RESETFROMARDUINO  111
 void setup()
 {
+esp_task_wdt_init(8, true);
 MEGA.begin(115200,SERIAL_8N1, 36, 12); //RX, TX
 Heltec.begin(true /*DisplayEnable Enable*/, true /*Heltec.Heltec.Heltec.LoRa Disable*/, true /*Serial Enable*/, true /*PABOOST Enable*/, BAND /*long BAND*/);
 Serial.println("Hello It's LoRaOutSide.");
@@ -30,6 +32,7 @@ Serial.println("Waiting For InComing Data...");
 }
 void loop()
 {
+  esp_task_wdt_reset();
   //Serial.println("Varok");
   //GetControlDatacheck();
     if(ReceiveDataFromInSideLoRa())
