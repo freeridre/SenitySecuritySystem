@@ -1,0 +1,73 @@
+{
+    "configurations": [
+        {
+            "name": "!!! WARNING !!! AUTO-GENERATED FILE, PLEASE DO NOT MODIFY IT AND USE https://docs.platformio.org/page/projectconf/section_env_build.html#build-flags"
+        },
+        {
+            "name": "Win32",
+            "includePath": [
+                "f:/OneDrive - Óbudai egyetem/beagy projektek/belepteto/codes/VSC/Arduino Mega ADK Inside/include",
+                "f:/OneDrive - Óbudai egyetem/beagy projektek/belepteto/codes/VSC/Arduino Mega ADK Inside/src",
+                "C:/Users/dani/.platformio/lib/SparkFun Qwiic RFID Arduino Library_ID6562/src",
+                "C:/Users/dani/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
+                "f:/OneDrive - Óbudai egyetem/beagy projektek/belepteto/codes/VSC/Arduino Mega ADK Inside/.pio/libdeps/megaADK/Adafruit PN532_ID29",
+                "C:/Users/dani/.platformio/lib/Adafruit BusIO_ID6214",
+                "C:/Users/dani/.platformio/packages/framework-arduino-avr/libraries/Wire/src",
+                "C:/Users/dani/.platformio/packages/framework-arduino-avr/libraries/SPI/src",
+                "C:/Users/dani/.platformio/packages/framework-arduino-avr/cores/arduino",
+                "C:/Users/dani/.platformio/packages/framework-arduino-avr/variants/mega",
+                "C:/Users/dani/.platformio/lib/Adafruit Fingerprint Sensor Library_ID382",
+                "C:/Users/dani/.platformio/lib/Adafruit PN532_ID29",
+                "C:/Users/dani/.platformio/lib/FastLED_ID126",
+                "C:/Users/dani/.platformio/lib/Heltec ESP32 Dev-Boards_ID6051/src",
+                "C:/Users/dani/.platformio/lib/RTClib_ID83",
+                "C:/Users/dani/.platformio/packages/framework-arduino-avr/libraries/HID/src",
+                "C:/Users/dani/.platformio/packages/framework-arduino-avr/libraries/SoftwareSerial/src",
+                "C:/Users/dani/.platformio/packages/tool-unity",
+                ""
+            ],
+            "browse": {
+                "limitSymbolsToIncludedHeaders": true,
+                "path": [
+                    "f:/OneDrive - Óbudai egyetem/beagy projektek/belepteto/codes/VSC/Arduino Mega ADK Inside/include",
+                    "f:/OneDrive - Óbudai egyetem/beagy projektek/belepteto/codes/VSC/Arduino Mega ADK Inside/src",
+                    "C:/Users/dani/.platformio/lib/SparkFun Qwiic RFID Arduino Library_ID6562/src",
+                    "C:/Users/dani/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
+                    "f:/OneDrive - Óbudai egyetem/beagy projektek/belepteto/codes/VSC/Arduino Mega ADK Inside/.pio/libdeps/megaADK/Adafruit PN532_ID29",
+                    "C:/Users/dani/.platformio/lib/Adafruit BusIO_ID6214",
+                    "C:/Users/dani/.platformio/packages/framework-arduino-avr/libraries/Wire/src",
+                    "C:/Users/dani/.platformio/packages/framework-arduino-avr/libraries/SPI/src",
+                    "C:/Users/dani/.platformio/packages/framework-arduino-avr/cores/arduino",
+                    "C:/Users/dani/.platformio/packages/framework-arduino-avr/variants/mega",
+                    "C:/Users/dani/.platformio/lib/Adafruit Fingerprint Sensor Library_ID382",
+                    "C:/Users/dani/.platformio/lib/Adafruit PN532_ID29",
+                    "C:/Users/dani/.platformio/lib/FastLED_ID126",
+                    "C:/Users/dani/.platformio/lib/Heltec ESP32 Dev-Boards_ID6051/src",
+                    "C:/Users/dani/.platformio/lib/RTClib_ID83",
+                    "C:/Users/dani/.platformio/packages/framework-arduino-avr/libraries/HID/src",
+                    "C:/Users/dani/.platformio/packages/framework-arduino-avr/libraries/SoftwareSerial/src",
+                    "C:/Users/dani/.platformio/packages/tool-unity",
+                    ""
+                ]
+            },
+            "defines": [
+                "PLATFORMIO=40201",
+                "ARDUINO_AVR_ADK",
+                "F_CPU=16000000L",
+                "ARDUINO_ARCH_AVR",
+                "ARDUINO=10808",
+                "__AVR_ATmega2560__",
+                ""
+            ],
+            "intelliSenseMode": "clang-x64",
+            "cStandard": "c11",
+            "cppStandard": "c++11",
+            "compilerPath": "C:/Users/dani/.platformio/packages/toolchain-atmelavr@1.50400.190710/bin/avr-gcc.exe",
+            "compilerArgs": [
+                "-mmcu=atmega2560",
+                ""
+            ]
+        }
+    ],
+    "version": 4
+}
