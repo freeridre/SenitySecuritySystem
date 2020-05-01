@@ -1,7 +1,7 @@
 //ESP32 LORA SIDE bent
 #include <HardwareSerial.h>
 #include "heltec.h"
-
+#include <esp_task_wdt.h>
 #define BAND 868E6   //433E6  //you can set band here directly,e.g. 868E6,915E6
 HardwareSerial MEGA(1);
 uint8_t CardDataFromKapu[18] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -14,6 +14,7 @@ void SendCardDataToArduino();
 void ReceiveDataFromArduino();
 void GetControlDatacheckFromOutSideLoRa();
 void setup() {
+  esp_task_wdt_init(2, true);
     //WIFI Kit series V1 not support Vext control
   //Serial.begin(115200);
   MEGA.begin(115200,SERIAL_8N1, 36, 12); //RX, TX
@@ -27,6 +28,7 @@ void setup() {
 void loop() {    
   //MEGA.write("9");
   //Serial.println("Hello2!");
+  esp_task_wdt_reset();
   if(ReceiveDataFromLoRa()) {
     SendCardDataToArduino();
   }
