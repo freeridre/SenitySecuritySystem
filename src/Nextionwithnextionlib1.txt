@@ -1,0 +1,242 @@
+#include <Arduino.h>
+#include "nextion.h"
+#include "RTClib.h"
+#include <Wire.h>
+//RTC DS3231 Configuration
+RTC_DS3231 rtc;
+uint8_t DS3231Time[] = {0, 0, 0, 0, 0, 0, 0};
+uint8_t DS3231TimeCurrentTime[] = {0, 0, 0, 0, 0, 0, 0};
+DateTime now;
+void TimeToNextion();
+void SendTimeToNextion();
+unsigned long NextionCurrentTime;
+unsigned long NextionStartTime;
+int NextionTimeInterval = 1000;
+//initialize buzzer
+#define Buzzer 31
+void Buzz();
+void BuzzMenuSucc();
+void BuzzMenuDenied();
+void NextionEnter();
+//Nextion Buffer
+uint8_t NextionBuffer[7] = {0, 0, 0, 0, 0, 0, 0};
+int NextionI = 0;
+//Nextion function
+void b0PopCallback(void *ptr)  // Press event for button b0
+{
+  Buzz();  // Turn ON Buzzer
+}
+void b1PopCallback(void *ptr)  // Press event for button b1
+{
+  Buzz();  // Turn ON Buzzer
+}
+void b2PopCallback(void *ptr)  // Press event for button b2
+{
+  Buzz();  // Turn ON Buzzer
+}
+void b3PopCallback(void *ptr)  // Press event for button b3
+{
+  Buzz();  // Turn ON Buzzer
+}
+void b4PopCallback(void *ptr)  // Press event for button b4
+{
+  Buzz();  // Turn ON Buzzer
+}
+void b5PopCallback(void *ptr)  // Press event for button b5
+{
+  Buzz();  // Turn ON Buzzer
+}
+void b6PopCallback(void *ptr)  // Press event for button b6
+{
+  Buzz();  // Turn ON Buzzer
+}
+void b7PopCallback(void *ptr)  // Press event for button b7
+{
+  Buzz();  // Turn ON Buzzer
+}
+void b8PopCallback(void *ptr)  // Press event for button b8
+{
+  Buzz();  // Turn ON Buzzer
+}
+void b9PopCallback(void *ptr)  // Press event for button b9
+{
+  Buzz();  // Turn ON Buzzer
+}
+void b10PopCallback(void *ptr)  // Press event for button b10
+{
+  Buzz();  // Turn ON Buzzer
+}
+void b11PopCallback(void *ptr)  // Press event for button b10
+{
+  BuzzMenuSucc();  // Turn ON Buzzer
+  
+}
+//Initialize Nextion Components
+NexButton b0 = NexButton(0, 2, "b0");
+NexButton b1 = NexButton(0, 6, "b1");
+NexButton b2 = NexButton(0, 7, "b2");
+NexButton b3 = NexButton(0, 8, "b3");
+NexButton b4 = NexButton(0, 9, "b4");
+NexButton b5 = NexButton(0, 10, "b5");
+NexButton b6 = NexButton(0, 11, "b6");
+NexButton b7 = NexButton(0, 12, "b7");
+NexButton b8 = NexButton(0, 13, "b8");
+NexButton b9 = NexButton(0, 14, "b9");
+NexButton b10 = NexButton(0, 15, "b10");
+NexButton b11 = NexButton(0, 16, "b11");
+
+NexPage page0 = NexPage(0, 0, "page0");
+NexPage page3 = NexPage(3, 0, "page3");
+NexPage page4 = NexPage(4, 0, "page4");
+NexPage page5 = NexPage(5, 0, "page5");
+
+//recieve text from Display
+char buffer[100] = {0};
+//NExtion listen list
+NexTouch *nex_listen_list[] = 
+{
+  &b0,  // Button added
+  &b1,
+  &b2,
+  &b3,
+  &b4,
+  &b5,
+  &b6,
+  &b7,
+  &b8,
+  &b9,
+  &b10,
+  &b11,
+  &page0,
+  &page3,
+  &page4,
+  &page5,
+  NULL  // String terminated
+};
+
+void setup()
+{
+    pinMode(Buzzer, OUTPUT);
+    Serial.begin(250000);
+    nexInit();
+    delay(500);
+
+    b0.attachPop(b0PopCallback);
+    b1.attachPop(b1PopCallback);
+    b2.attachPop(b2PopCallback);
+    b3.attachPop(b3PopCallback);
+    b4.attachPop(b4PopCallback);
+    b5.attachPop(b5PopCallback);
+    b6.attachPop(b6PopCallback);
+    b7.attachPop(b7PopCallback);
+    b8.attachPop(b8PopCallback);
+    b9.attachPop(b9PopCallback);
+    b10.attachPop(b10PopCallback);
+    b11.attachPop(b11PopCallback);
+
+    Serial.println("Hello!");
+  if (! rtc.begin())
+  {
+    Serial.println("Couldn't find RTC");
+    while (1);
+  }else
+  Serial.println("RTC Has just Started!");
+NextionStartTime = millis();
+}
+void loop()
+{
+    NextionCurrentTime = millis();
+    nexLoop(nex_listen_list);
+    NextionEnter();
+    SendTimeToNextion();
+}
+void Buzz()
+{
+    tone(Buzzer,2000);
+    delay(15);
+    noTone(Buzzer);
+    delay(15);
+}
+void BuzzMenuSucc()
+{
+    for(int i = 0; i < 2; i++)
+    {
+    tone(Buzzer, 2000);
+    delay(150);
+    noTone(Buzzer);
+    delay(150);
+    }
+}
+void BuzzMenuDenied()
+{
+    tone(Buzzer,2000);
+    delay(150);
+    noTone(Buzzer);
+    delay(150);
+
+    tone(Buzzer,1500);
+    delay(200);
+    noTone(Buzzer);
+    delay(150);
+}
+void TimeToNextion()
+{
+    now = rtc.now();
+    //Serial.println("Time Stamp: ");
+    DS3231Time[0] = now.year()-2000; DS3231Time[1] = now.month(); DS3231Time[2] = now.day();
+    DS3231Time[3] = now.dayOfTheWeek(); DS3231Time[4] = now.hour(); DS3231Time[5] = now.minute(); DS3231Time[6] = now.second();
+}
+void SendTimeToNextion()
+{
+    if(NextionCurrentTime - NextionStartTime >= NextionTimeInterval)
+    {
+        NextionStartTime = NextionCurrentTime;
+        TimeToNextion();
+        Serial2.print("n0.val=");
+        Serial2.print(DS3231Time[0]+2000);
+        Serial2.write(0xff);
+        Serial2.write(0xff);
+        Serial2.write(0xff);
+
+        Serial2.print("n1.val=");
+        Serial2.print(DS3231Time[1]);
+        Serial2.write(0xff);
+        Serial2.write(0xff);
+        Serial2.write(0xff);
+
+        Serial2.print("n2.val=");
+        Serial2.print(DS3231Time[2]);
+        Serial2.write(0xff);
+        Serial2.write(0xff);
+        Serial2.write(0xff);
+
+        Serial2.print("n3.val=");
+        Serial2.print(DS3231Time[4]);
+        Serial2.write(0xff);
+        Serial2.write(0xff);
+        Serial2.write(0xff);
+
+        Serial2.print("n4.val=");
+        Serial2.print(DS3231Time[5]);
+        Serial2.write(0xff);
+        Serial2.write(0xff);
+        Serial2.write(0xff);
+
+        Serial2.print("n5.val=");
+        Serial2.print(DS3231Time[6]);
+        //Serial.println(DS3231Time[6]);
+        Serial2.write(0xff);
+        Serial2.write(0xff);
+        Serial2.write(0xff);
+    }
+}
+void NextionEnter()
+{
+    if(Serial2.available() > 0)
+    {
+      Serial.println("itt");
+      Serial.println(Serial2.read());
+    }
+      
+    
+}

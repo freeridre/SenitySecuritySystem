@@ -1,0 +1,47 @@
+#include <Arduino.h>
+long randNumber;
+long szamok[28] = {};
+uint8_t szamoknulla[28] = {};
+byte szamoknullaindex = 0;
+boolean Nulla = true;
+void setup() 
+{
+  Serial.begin(115200);
+}
+void loop() 
+{
+  szamoknullaindex = 0;
+  for (int i = 0; i < 28; i++)
+  {
+    randNumber = random(-10, 10);
+    szamok[i] = randNumber;
+    Serial.print(i+1); Serial.print(". "); Serial.println(szamok[i]);
+    if(szamok[i] != 0)
+    {
+      //Serial.println("Nincs nulla");
+      //Nulla = true;
+    }else if (szamok[i] == 0)
+    {
+      szamoknulla[szamoknullaindex] = i+1;
+      szamoknullaindex++;
+      //Serial.println("Van nulla");
+      Nulla = false;
+    }
+  }
+  if (!Nulla)
+  {
+    Nulla = true;
+    for (int a = 0; a < szamoknullaindex; a++)
+    {
+      if(szamoknulla[a] > 0)
+      {
+        Serial.print(" Van nulla, es a nulla erteket a(z) "); Serial.print(szamoknulla[a]); Serial.println(". elem tartalmazza.");
+      }
+    }
+  }else if(Nulla)
+  {
+    Serial.println("Nincs nulla ertek!");
+    szamoknullaindex = 0;
+  }
+  delay(5000);
+}

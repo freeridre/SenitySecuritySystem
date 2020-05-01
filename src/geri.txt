@@ -1,0 +1,35 @@
+#include <Arduino.h>
+long randomnumber;
+uint8_t tomb[100] = {};
+uint8_t tomb2[100] = {};
+unsigned int i = 1;
+unsigned int b = 0;
+void numbercomparator();
+void setup()
+{
+    Serial.begin(115200);
+    //Serial.println(sizeof(tomb));
+    //while(1);
+while(i != sizeof(tomb)+1)
+{
+    randomnumber = random(0, 100);
+    Serial.print("Data "); Serial.print(i); Serial.print(" is: ");
+    tomb[i] = randomnumber;
+    Serial.println(tomb[i]);
+    i++;
+}
+numbercomparator();
+}
+void loop()
+{
+
+}
+void numbercomparator()
+{
+    for(int ia = 0; ia != sizeof(tomb); ia++)
+    {
+        tomb[ia] = ia;
+        Serial.print("Tomb "); Serial.print(ia); Serial.print(": "); Serial.println(ia);
+    }
+    
+}

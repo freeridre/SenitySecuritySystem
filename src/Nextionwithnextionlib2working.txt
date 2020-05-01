@@ -1,0 +1,202 @@
+#include <Arduino.h>
+#include <Nextion.h>
+#include "RTClib.h"
+#include <Wire.h>
+//RTC DS3231 Configuration
+RTC_DS3231 rtc;
+uint8_t DS3231Time[] = {0, 0, 0, 0, 0, 0, 0};
+uint8_t DS3231TimeCurrentTime[] = {0, 0, 0, 0, 0, 0, 0};
+DateTime now;
+unsigned long NextionCurrentTime;
+unsigned long NextionStartTime;
+int NextionTimeInterval = 250;
+//initialize buzzer
+#define Buzzer 31
+//Init Nextion buffer
+uint8_t NextionBuffer[10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+int NextionI = 0;
+boolean NextionDataRec = false;
+void ReadFromNextion();
+void BuzzNextionSuccess();
+void BuzzNextionDenied();
+void NextionBuzzer();
+void SendTimeToNextion();
+void TimeToNextion();
+void NextionPassCodeTimeOut();
+void NextionBuzzerQuit();
+void setup()
+{
+    Serial.begin(115200);
+    nexInit();
+    Serial.println("Hello!");
+  if (! rtc.begin())
+  {
+    Serial.println("Couldn't find RTC");
+    while (1);
+  }else
+  Serial.println("RTC Has just Started!");
+  NextionStartTime = millis();
+}
+void loop()
+{
+    NextionCurrentTime = millis();
+    ReadFromNextion();
+    SendTimeToNextion();
+}
+void ReadFromNextion()
+{
+    NextionDataRec = false;
+    while(Serial2.available() > 0)
+    {
+        NextionBuffer[NextionI] = Serial2.read();
+        Serial.print("Data "); Serial.print(NextionI); Serial.print(" is "); Serial.println(NextionBuffer[NextionI], HEX);
+        NextionI++;
+        if(NextionI > 9)
+        {
+
+            NextionI = 0;
+        }
+        NextionDataRec = true;
+
+    }
+    if(NextionDataRec)
+    {
+        Serial.print("Data received "); Serial.print(NextionI); Serial.println(".");
+        if(NextionBuffer[0] == 104)
+        {
+            BuzzNextionSuccess();
+        }else if(NextionBuffer[0] == 105)
+        {
+            BuzzNextionDenied();
+        //Page 0
+        }else if((NextionBuffer[0] == 0x65 && NextionBuffer[1] == 0x0) && (NextionBuffer[2] == 0x2 || NextionBuffer[2] == 0x6 || NextionBuffer[2] == 0x7 || NextionBuffer[2] == 0x8 || NextionBuffer[2] == 0x9 || NextionBuffer[2] == 0xA || NextionBuffer[2] == 0xB || NextionBuffer[2] == 0xC || NextionBuffer[2] == 0xD || NextionBuffer[2] == 0xE || NextionBuffer[2] == 0xF ) && (NextionBuffer[3] == 0x0 && NextionBuffer[4] == 0xFF && NextionBuffer[5] == 0xFF && NextionBuffer[6] == 0xFF))
+        {
+            NextionBuzzer();
+        //Countdown
+        }else if(NextionBuffer[0] == 2 && NextionBuffer[1] == 2)
+        {
+            NextionPassCodeTimeOut();
+        //Page 3
+        }else if((NextionBuffer[0] == 0x65 && NextionBuffer[1] == 0x3) && (NextionBuffer[2] == 0x5) && (NextionBuffer[3] == 0x1 && NextionBuffer[4] == 0xFF && NextionBuffer[5] == 0xFF && NextionBuffer[6] == 0xFF))
+        {
+            NextionBuzzerQuit();
+        }else if((NextionBuffer[0] == 0x65 && NextionBuffer[1] == 0x3) && (NextionBuffer[2] == 0x2 || NextionBuffer[2] == 0x3 || NextionBuffer[2] == 0x4 || NextionBuffer[2] == 0x6) && (NextionBuffer[3] == 0x1) && (NextionBuffer[4] == 0xFF && NextionBuffer[5] == 0xFF && NextionBuffer[6] == 0xFF))
+        {
+            NextionBuzzer();
+        }
+        //Page 4
+        else
+        {
+            for (int i = 0; i < sizeof(NextionI); i++)
+            {
+            NextionBuffer[NextionI] = 0;
+            
+            }
+            NextionI = 0;
+        }
+        NextionDataRec = false;
+    }
+      for (int i = 0; i < sizeof(NextionI); i++)
+      {
+          NextionBuffer[NextionI] = 0;
+          
+      }
+      NextionI = 0;
+      NextionDataRec = false;
+}
+void BuzzNextionSuccess()
+{
+    for(int i = 0; i < 3; i++)
+    {
+        tone(Buzzer, 2000);
+        delay(70);
+        noTone(Buzzer);
+        delay(70);
+    }
+}
+void BuzzNextionDenied()
+{
+        tone(Buzzer, 2000);
+        delay(100);
+        noTone(Buzzer);
+        delay(100);
+        tone(Buzzer, 500);
+        delay(500);
+        noTone(Buzzer);
+        delay(150);
+}
+void NextionBuzzer()
+{
+        tone(Buzzer, 2000);
+        delay(25);
+        noTone(Buzzer);
+        delay(25);
+}
+void NextionPassCodeTimeOut()
+{
+    tone(Buzzer, 2000);
+    delay(25);
+    noTone(Buzzer);
+    delay(25);
+}
+void NextionBuzzerQuit()
+{
+    for(int i = 0; i < 3; i++)
+    {
+        tone(Buzzer, 500);
+        delay(70);
+        noTone(Buzzer);
+        delay(70);
+    }
+}
+void TimeToNextion()
+{
+    now = rtc.now();
+    //Serial.println("Time Stamp: ");
+    DS3231Time[0] = now.year()-2000; DS3231Time[1] = now.month(); DS3231Time[2] = now.day();
+    DS3231Time[3] = now.dayOfTheWeek(); DS3231Time[4] = now.hour(); DS3231Time[5] = now.minute(); DS3231Time[6] = now.second();
+}
+void SendTimeToNextion()
+{
+    if(NextionCurrentTime - NextionStartTime >= NextionTimeInterval)
+    {
+        NextionStartTime = NextionCurrentTime;
+        TimeToNextion();
+        Serial2.print("n0.val=");
+        Serial2.print(DS3231Time[0]+2000);
+        Serial2.write(0xff);
+        Serial2.write(0xff);
+        Serial2.write(0xff);
+        //Serial.println(DS3231Time[0]+2000);
+        Serial2.print("n1.val=");
+        Serial2.print(DS3231Time[1]);
+        Serial2.write(0xff);
+        Serial2.write(0xff);
+        Serial2.write(0xff);
+
+        Serial2.print("n2.val=");
+        Serial2.print(DS3231Time[2]);
+        Serial2.write(0xff);
+        Serial2.write(0xff);
+        Serial2.write(0xff);
+
+        Serial2.print("n3.val=");
+        Serial2.print(DS3231Time[4]);
+        Serial2.write(0xff);
+        Serial2.write(0xff);
+        Serial2.write(0xff);
+
+        Serial2.print("n4.val=");
+        Serial2.print(DS3231Time[5]);
+        Serial2.write(0xff);
+        Serial2.write(0xff);
+        Serial2.write(0xff);
+
+        Serial2.print("n5.val=");
+        Serial2.print(DS3231Time[6]);
+        //Serial.println(DS3231Time[6]);
+        Serial2.write(0xff);
+        Serial2.write(0xff);
+        Serial2.write(0xff);
+    }
+}
