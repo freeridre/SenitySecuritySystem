@@ -540,7 +540,7 @@ void setup()
 {
   wdt_disable();
   wdt_enable(WDTO_8S);
-
+  TIMEAdjust();
   //Arduino Software RESET
   //pinMode(RSTARDU, OUTPUT);
   FirstTime = millis();
@@ -824,7 +824,7 @@ void loop()
   //**Serial.println(CountPir);
   currentMillis = millis();
   NextionCurrentTime = millis();
-  TIMEAdjust();
+  
   ReadFromNextion();
   SendTimeToNextion();
   
@@ -1289,20 +1289,19 @@ void ButtonPushedOutSide ()
 }
 void TIMEAdjust()
 {
-  rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+  rtc.adjust(DateTime(F(__DATE__), F(__TIME__)) + TimeSpan(11));
+  //rtc.adjust(DateTime(2020, 5, 2, 3, 44, 0));
+  
   now = rtc.now();
 }
 void TimeNow()
 {
-  /*Run only once, if it's lost power run it again
-  rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));*/
-  //rtc.adjust(DateTime(2020, 4, 6, 0, 51, 20));
   now = rtc.now();
     if (rtc.lostPower())
     {
     Serial.println("RTC lost power, lets set the time!");
     // following line sets the RTC to the date & time this sketch was compiled
-    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)) + TimeSpan(11));
     // This line sets the RTC with an explicit date & time, for example to set
     // January 21, 2014 at 3am you would call:
     // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
