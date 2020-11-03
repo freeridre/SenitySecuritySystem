@@ -1,0 +1,36 @@
+//ESP32 LORA SIDE bent
+#include <HardwareSerial.h>
+#include "heltec.h"
+#include <esp_task_wdt.h>
+#define BAND 868E6   //433E6  //you can set band here directly,e.g. 868E6,915E6
+HardwareSerial MEGA(1);
+uint8_t CardDataFromKapu[18] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+uint8_t byteFromKapu;
+uint8_t CARDDATATOINSIDEMEGA;
+uint8_t BackFromSenityStatus[6] = {0, 0, 0, 0, 0, 0};
+uint8_t UIDDownload[5] = {0, 0, 0, 0, 0};
+int CountBackFromSenityStatus = 0;
+int packetSize = LoRa.parsePacket();
+void setup() {
+  ///****
+  //esp_task_wdt_init(2, true);
+
+    //WIFI Kit series V1 not support Vext control
+  //Serial.begin(115200);
+  MEGA.begin(115200,SERIAL_8N1, 36, 12); //RX, TX
+  Heltec.begin(true /*DisplayEnable Enable*/, true /*Heltec.LoRa Disable*/, true /*Serial Enable*/, true /*PABOOST Enable*/, BAND /*long BAND*/);
+  LoRa.setTxPowerMax(20);
+  Serial.println();
+  Serial.println("Hello It's LoRaInSide.");
+  Serial.println("Waiting For InComing Data...");
+}
+
+void loop() {    
+  //MEGA.write("9");
+  //Serial.println("Hello2!");
+  ///****
+  //esp_task_wdt_reset();
+
+  
+  //delay(200);
+}

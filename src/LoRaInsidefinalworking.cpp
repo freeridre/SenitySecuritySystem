@@ -2,19 +2,27 @@
 #include <HardwareSerial.h>
 #include "heltec.h"
 #include <esp_task_wdt.h>
+#include <vector>
+#include <iostream>
 #define BAND 868E6   //433E6  //you can set band here directly,e.g. 868E6,915E6
 HardwareSerial MEGA(1);
 uint8_t CardDataFromKapu[18] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 uint8_t byteFromKapu;
 uint8_t CARDDATATOINSIDEMEGA;
-uint8_t BackFromSenityStatus;
+uint8_t BackFromSenityStatus[6] = {};
+uint8_t UIDDownload[5] = {0, 0, 0, 0, 0};
+int CountBackFromSenityStatus = 0;
 int packetSize = LoRa.parsePacket();
+int NOCP = 0;
+int NOC = 0;
 boolean ReceiveDataFromLoRa();
 void SendCardDataToArduino();
 void ReceiveDataFromArduino();
 void GetControlDatacheckFromOutSideLoRa();
 void setup() {
+  ///****
   esp_task_wdt_init(2, true);
+
     //WIFI Kit series V1 not support Vext control
   //Serial.begin(115200);
   MEGA.begin(115200,SERIAL_8N1, 36, 12); //RX, TX
@@ -28,13 +36,15 @@ void setup() {
 void loop() {    
   //MEGA.write("9");
   //Serial.println("Hello2!");
+  ///****
   esp_task_wdt_reset();
+
   if(ReceiveDataFromLoRa()) {
     SendCardDataToArduino();
+    
   }
 
   ReceiveDataFromArduino();
-
   //delay(200);
 }
 
@@ -86,47 +96,121 @@ boolean ReceiveDataFromLoRa() {
   return ret;
 }
 
-void ReceiveDataFromArduino() {
-
-  //uint8_t availableData = MEGA.available();
-  /*Serial.print("Available data: ");
-  Serial.println(availableData, HEX);*/
-            
+void ReceiveDataFromArduino() 
+{
   
-  while(MEGA.available())
-  {    
-    BackFromSenityStatus = MEGA.read();
-    Serial.print("Received Data From InSide Arduino: ");
-    Serial.println(BackFromSenityStatus, DEC);
-    if (BackFromSenityStatus == 112)
+  
+  CountBackFromSenityStatus = 0;
+  while(MEGA.available() > 0)
+  {
+    BackFromSenityStatus[CountBackFromSenityStatus] = MEGA.read();
+    //MEGA.readBytes(BackFromSenityStatus, 6);
+    if(BackFromSenityStatus[0] == 0x2A && BackFromSenityStatus[1] == 0x2A && BackFromSenityStatus[2] == 0x2D && BackFromSenityStatus[4] == 0x2A)
     {
-      Serial.println("LoRa Inside Has Just Reseted! Cause of Arduino Inside Reset!");
-      BackFromSenityStatus = 0;
-      ESP.restart();
+      Serial.println("Number of cards data has sent.");
+      Serial.println(BackFromSenityStatus[0], HEX);
+      Serial.println(BackFromSenityStatus[1], HEX);
+      Serial.println(BackFromSenityStatus[2], HEX);
+      Serial.println(BackFromSenityStatus[3], HEX);
+      Serial.println(BackFromSenityStatus[4], HEX);
+      Serial.println(BackFromSenityStatus[5], HEX);
+      LoRa.beginPacket();
+      LoRa.write(BackFromSenityStatus, sizeof(BackFromSenityStatus));
+      LoRa.endPacket();
+      
+    }else if(BackFromSenityStatus[0] == 63 && BackFromSenityStatus[1] == 63 && BackFromSenityStatus[2] == 64)
+    {
+      Serial.println("It's the end of Card data from DB.");
+      Serial.println(BackFromSenityStatus[0], HEX);
+      Serial.println(BackFromSenityStatus[1], HEX);
+      Serial.println(BackFromSenityStatus[2], HEX);
+      LoRa.beginPacket();
+      LoRa.write(BackFromSenityStatus, sizeof(BackFromSenityStatus));
+      LoRa.endPacket();
+    }else if(BackFromSenityStatus[0] == 113 && BackFromSenityStatus[1] == 113 && BackFromSenityStatus[2] == 239)
+    {
+      Serial.println("Retry Card Data Donwload process Finished.");
+      Serial.println(BackFromSenityStatus[0], HEX);
+      Serial.println(BackFromSenityStatus[1], HEX);
+      Serial.println(BackFromSenityStatus[2], HEX);
+      LoRa.beginPacket();
+      LoRa.write(BackFromSenityStatus, sizeof(BackFromSenityStatus));
+      LoRa.endPacket();
+    }else if(BackFromSenityStatus[0] == 0x71 && BackFromSenityStatus[1] == 0x71 && BackFromSenityStatus[2] == 0xF0)
+    {
+      Serial.println("It's Retry Card Data Donwload Connection.");
+      Serial.println(BackFromSenityStatus[0], HEX);
+      Serial.println(BackFromSenityStatus[1], HEX);
+      Serial.println(BackFromSenityStatus[2], HEX);
+      LoRa.beginPacket();
+      LoRa.write(BackFromSenityStatus, sizeof(BackFromSenityStatus));
+      LoRa.endPacket();
     }
-    //delay(250);
-    LoRa.beginPacket();
-    //Serial.print("Send Recieved Data ");
-    //Serial.print(BackFromSenityStatus);
-    //Serial.println("From Arduino to Gate LoRa.");
-    //MEGA.println("Send Data to Gate LoRa");
-    Serial.print("Send Received Data "); Serial.print(BackFromSenityStatus); Serial.println(" From Arduino to Gate LoRa.");
-    //LoRa.write(BackFromSenityStatus);
-    LoRa.write(BackFromSenityStatus);
-    LoRa.endPacket();
-    Serial.println("End Data Sending to Gate LoRa");
-    //MEGA.println("End Data Sending to Gate LoRa");
+    CountBackFromSenityStatus++;
   }
-  BackFromSenityStatus = 0;
+  if(CountBackFromSenityStatus != 0)
+  {
+    int ia = 0;
+    Serial.print("Data From Senity is: ");
+    for(ia = 0; ia < sizeof(BackFromSenityStatus); ia++)
+    {
+      if (BackFromSenityStatus[ia] != 0)
+      {
+        Serial.print(BackFromSenityStatus[ia], HEX); Serial.print(" ");
+      }
+    }
+    Serial.println();
+    Serial.print("Data length arrived: "); Serial.println(ia);
+  }
+  if(BackFromSenityStatus[0] == 0xC)
+  {
+    Serial.println("Passed");
+    LoRa.beginPacket();
+    LoRa.write(BackFromSenityStatus[0]);
+    LoRa.endPacket();
+    Serial.println("Data has sent to outside.");
+  }else if(BackFromSenityStatus[0] == 0xB)
+  {
+    Serial.println("Rejected");
+    LoRa.beginPacket();
+    LoRa.write(BackFromSenityStatus[0]);
+    LoRa.endPacket();
+    Serial.println("Data has sent to outside.");
+  }else if(BackFromSenityStatus[0] == 255 && BackFromSenityStatus[1] == 254)
+  {
+    Serial.println("It's a card pkg from DB.");
+    NOC++;
+    NOCP = NOC;
+    for (int i = 0; i < sizeof(BackFromSenityStatus); i++)
+    {
+      Serial.print(BackFromSenityStatus[i], HEX);
+    }
+    Serial.println();
+    LoRa.beginPacket();
+    LoRa.write(BackFromSenityStatus, sizeof(BackFromSenityStatus));
+    LoRa.endPacket();
+    for (int i = 0; i < sizeof(BackFromSenityStatus); i++)
+    {
+      BackFromSenityStatus[i] = 0;
+    }
+  }
+  //Release
+  for (int i = 0; i < sizeof(BackFromSenityStatus); i++)
+  {
+    BackFromSenityStatus[i] = 0;
+  }
+
 }
 
 
 
 void SendCardDataToArduino()
 {  
+  //Serial.println("Kuldon az adatot");
   for(int i = 0; i < sizeof(CardDataFromKapu); i += 1)
   {
       MEGA.write(CardDataFromKapu[i]);
+      //Serial.println(CardDataFromKapu[i], HEX);
   }
 }
 void GetControlDatacheckFromOutSideLoRa()
