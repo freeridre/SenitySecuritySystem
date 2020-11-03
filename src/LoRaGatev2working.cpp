@@ -5,7 +5,8 @@
 //#include "arduino.h"
 #define BAND 868E6   //433E6  //915E6
 HardwareSerial MEGA(1);
-uint8_t BackFromDoorStatus;
+uint8_t BackFromDoorStatus[6] = {0, 0, 0, 0, 0, 0};
+int BFDS = 0;
 uint8_t uidLength;
 uint8_t DataCheck[3] = {1, 1, 1};
 uint8_t DataConfirm[3] = {2, 2, 2};
@@ -39,7 +40,11 @@ void loop()
     {
       Serial.println("Adatot kaptam!");
         SendControlDataToArduino();
-        BackFromDoorStatus = 0;
+        for (int i = 0; i < sizeof(BackFromDoorStatus); i++)
+        {
+          BackFromDoorStatus[i] = 0;
+        }
+        
     }
     ReceiveDataFromGateArduino();
     //delay(20);
@@ -130,7 +135,7 @@ void LORASEND()
     LoRa.endPacket();
     Serial.println("Data Has Sent To InSide LoRa.");
     Serial.println("Released Card Data Buffer: ");
-    for (int i = 2; i < sizeof(CARDDATA)-2; i++)
+    for (int i = 0; i < sizeof(CARDDATA)-2; i++)
     {
       CARDDATA[i] = 0;
     }
@@ -144,10 +149,7 @@ void LORASEND()
 }
 boolean ReceiveDataFromInSideLoRa()
 {
-  // Stores the return value
   boolean ret = false;
-  //Serial.println("Helloka");
-  // Receive data from LoRa
   packetSize = LoRa.parsePacket();
   if(packetSize == 1)
   {
@@ -155,33 +157,42 @@ boolean ReceiveDataFromInSideLoRa()
   }
   if (packetSize)
   {
-    while(LoRa.available())
+    BFDS = 0;
+    Serial.println("Received Packet From InSide LoRa: ");
+    while(LoRa.available() > 0)
     {
-      BackFromDoorStatus = LoRa.read();
-      // received a packet
-      Serial.print("Received Packet From InSide LoRa: ");
-      // read packet
-      //while (LoRa.available() > 0)
-      //{
-        //BackFromDoorStatus = LoRa.read();
-      //}
+      BackFromDoorStatus[BFDS] = LoRa.read();
+      Serial.print(BackFromDoorStatus[BFDS], HEX);
+      Serial.print(" ");
+      BFDS++;
     }
-    Serial.println(BackFromDoorStatus, DEC);
-    //SendControlDataToArduino();
     ret = true;
   }
   else if (packetSize != 1)
   {
+    BFDS = 0;
     ret = false;
   }
   return ret;
-  
 }
 void SendControlDataToArduino()
 {
-MEGA.write(BackFromDoorStatus);
-Serial.print("ControlData"); Serial.print(BackFromDoorStatus); Serial.println("has sent back to Gate.");
-BackFromDoorStatus = 0;
+  MEGA.write(BackFromDoorStatus, sizeof(BackFromDoorStatus));
+  Serial.print("ControlData "); 
+  for (int i = 0; i < sizeof(BackFromDoorStatus); i++)
+  {
+    if(BackFromDoorStatus[i] != 0)
+    {
+      Serial.print(BackFromDoorStatus[i], HEX);
+    } 
+  }
+  Serial.println(" has sent back to Gate.");
+  //Release data
+  for (int i = 0; i < sizeof(BackFromDoorStatus); i++)
+  {
+    BackFromDoorStatus[i] = 0;
+  }
+  BFDS = 0;
 }
 /*void GetControlDatacheck()
 {
