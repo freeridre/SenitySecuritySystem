@@ -75,6 +75,10 @@ uint8_t IntegerDataStringArray1[4] = {};
 uint8_t byteFromESP32 [18] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 const uint8_t RetryCardDataDownloadCallBackPackage[3] = {113, 113, 239};
 const uint8_t RetryCardDataDownloadStartedBackPackage[3] = {113, 113, 240};
+const uint8_t EmptyDBtoGateController[3] = {113, 113, 241};
+uint8_t EndOfCardDataFromDBInt[3] = {63, 63, 64};
+int val = 0;
+uint8_t CardNUmToLoRa[5] = {42, 42, 45, val, 42};
 byte Status;
 //const int eeAddress;
 //User Serial3 Input
@@ -1494,9 +1498,16 @@ void CardDeleting()
       }else
       {
         Serial3.print("Actual card data number in DB: "); Serial3.println(Act_Card_data);
+        CardNUmToLoRa[3] = 0;
+        Serial1.write(CardNUmToLoRa, sizeof(CardNUmToLoRa));
+        delay(15000);
+        Serial1.write(EndOfCardDataFromDBInt, sizeof(EndOfCardDataFromDBInt));
       }
       main_menu = 1;
-      loop();
+      
+      Serial3.println("Waiting for log/action");
+      readfromoutsideLoRa();
+      //loop();
     }
   }
 }
@@ -1634,6 +1645,13 @@ void GetCardDataFromMySQLDB()
         MySQLConnectionPrevTimeOut = MySQLConnectionCurrTimeOut;
         //Serial.print("Released CurrentPrevTimeout Counter is: "); Serial.println(MySQLConnectionPrevTimeOut);
         MySQLCardNumber = MySQLCardNumbersReturn.toInt();
+        if(MySQLCardNumber == 63)
+        {
+          Serial3.print("Actual number of Cards in DB are: "); Serial3.print(MySQLCardNumber);
+          Serial3.print(". Maximum card number achieved. Please delete one card to upload a new one!");
+          Serial3.println("Waiting for log/action");
+          readfromoutsideLoRa();
+        }
         Serial3.println("Nullanal nagyobb szamot kaptam!");
         Serial3.print("Current Number of Cards are: ");Serial3.println(MySQLCardNumber);
         MySQLCardNumber = MySQLCardNumber + 1;
@@ -1837,7 +1855,9 @@ void CardLearningMaster()
           CardLearningProcess = false;          
           //CardLearningV3();
           main_menu = 1;
-          loop();
+          //loop();
+          Serial3.println("Waiting for log/action");
+          readfromoutsideLoRa();
           //return;
         }
         else if(CardAlRDYTaken2 == 'y' || CardAlRDYTaken2 == 'Y')
@@ -1884,7 +1904,12 @@ void CardLearningMaster()
           CardLearningName = false;
           CardLearningProcess = false;
           main_menu = 1;
-          loop();
+          //loop();
+          NMC = true;
+          CardReadOutMySQLv2();
+
+          Serial3.println("Waiting for log/action");
+          readfromoutsideLoRa();
           //return;
         }
       }
@@ -2382,11 +2407,11 @@ void CardReadOutMySQLv2()
   char StringtoCharUID2[4];
   char StringtoCharUID3[4];
   char StringtoCharUID4[4];
-  int val = 0;
+  //int val = 0;
   uint8_t CardFromDBIntarray[6] = {255, 254, 0, 0 , 0, 0};
   char EndOfCardDataFromDB[3] = "";
   String LastCardDatas  = "";
-  uint8_t CardNUmToLoRa[5] = {42, 42, 45, val, 42};
+  //uint8_t CardNUmToLoRa[5] = {42, 42, 45, val, 42};
   while(CardsFromDB)
   {
     SendTimeToNextion();
@@ -2410,8 +2435,13 @@ void CardReadOutMySQLv2()
       Serial3.print("Data From DB: "); Serial3.println(MysqlCardDatafromDB);
       DatalengthStr = MysqlCardDatafromDB.length();
       Datalength = DatalengthStr.toInt();
+      DatalengthStr = "";
       Serial3.print("Data Length from DB is: "); Serial3.println(Datalength);
       //To Card numbers
+      if(MysqlCardDatafromDB == "553")
+      {
+        NMC = false;
+      }
       if (Datalength > 0 && NMC)
       {
         Serial3.println("Ide jovokasdaasf!!!");
@@ -2447,6 +2477,17 @@ void CardReadOutMySQLv2()
           }
         }
         NMC=false;        
+      }else if(MysqlCardDatafromDB == "553")
+      {
+        Serial3.println("No card to fetch from DB!");
+        Serial3.print(EmptyDBtoGateController[0], DEC); Serial3.print(" ");
+        Serial3.print(EmptyDBtoGateController[1], DEC); Serial3.print(" ");
+        Serial3.print(EmptyDBtoGateController[2], DEC); Serial3.print(" ");
+        Serial.println(" ");
+        Serial1.write(EmptyDBtoGateController, sizeof(EmptyDBtoGateController));
+        //Serial1.write(RetryCardDataDownloadCallBackPackage, sizeof(RetryCardDataDownloadCallBackPackage));
+        Serial3.println("Waiting for log/action");
+        readfromoutsideLoRa();
       }
     }
     if(Datalength > 0 && !NMC)
@@ -2647,7 +2688,7 @@ void CardReadOutMySQLv2()
           if(LastCardDatChar[0] == 63 && LastCardDatChar[1] == 63)
           {
             Serial3.println("Itten vagyok he");
-            uint8_t EndOfCardDataFromDBInt[3] = {63, 63, 64};
+            //uint8_t EndOfCardDataFromDBInt[3] = {63, 63, 64};
             Serial3.print("1st: "); Serial3.println(EndOfCardDataFromDBInt[0]);
             Serial3.print("2nd: "); Serial3.println(EndOfCardDataFromDBInt[1]);
             Serial3.print("3rd: "); Serial3.println(EndOfCardDataFromDBInt[2]);
@@ -2657,8 +2698,9 @@ void CardReadOutMySQLv2()
             delay(500);
             Serial1.write(RetryCardDataDownloadCallBackPackage, sizeof(RetryCardDataDownloadCallBackPackage));
             Serial3.println("Waiting for incoming Data");
-            
-            //readfromoutsideLoRa();
+            MysqlCardDatafromDB = "";
+            Serial3.println("Waiting for log/action");
+            readfromoutsideLoRa();
             main_menu = 1;
             loop();            
           }
@@ -2830,6 +2872,7 @@ void SendActionToMysql()
       }else
       {
         Serial3.println("Visszamegyek...");
+        Serial3.println("Waiting for log/action");
         readfromoutsideLoRa();
       }
       
