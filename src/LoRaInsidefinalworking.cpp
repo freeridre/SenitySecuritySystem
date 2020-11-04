@@ -145,6 +145,15 @@ void ReceiveDataFromArduino()
       LoRa.beginPacket();
       LoRa.write(BackFromSenityStatus, sizeof(BackFromSenityStatus));
       LoRa.endPacket();
+    }else if(BackFromSenityStatus[0] == 0x71 && BackFromSenityStatus[1] == 0x71 && BackFromSenityStatus[2] == 0xF1)
+    {
+      Serial.println("The Database is empty");
+      Serial.println(BackFromSenityStatus[0], HEX);
+      Serial.println(BackFromSenityStatus[1], HEX);
+      Serial.println(BackFromSenityStatus[2], HEX);
+      LoRa.beginPacket();
+      LoRa.write(BackFromSenityStatus, sizeof(BackFromSenityStatus));
+      LoRa.endPacket();
     }
     CountBackFromSenityStatus++;
   }
