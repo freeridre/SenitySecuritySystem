@@ -844,6 +844,12 @@ void RecieveDataFromGateLoRa()
     Serial3.print(122);
     Serial3.print("\xFF\xFF\xFF");
     Serial.println("Connection data has sent to Nextion");
+  }else if(ControlData[0] == 113 && ControlData[1] == 113 && ControlData[2] == 241)
+  {
+    Serial.println("The Database is empty!");
+    Serial3.print("page11.RDDDTimeout.val=");
+    Serial3.print(600);
+    Serial3.print("\xFF\xFF\xFF");
   }
   //EEPROM_RGB_FINISH();
  //Release Data
@@ -2386,8 +2392,12 @@ void EEPROMReadOutAll()
 {
   eeprom_All_Card_Data_Bytes_Cont = readFrom(chipAddress, eeprom_All_Card_Data_Bytes);
   EEPROM.get(7, Ardueeprom_all_Card_data_bytes_cont);
+
   for (unsigned long i = 0; i < eeprom_All_Card_Data_Bytes_Cont; i++)
+  //for (unsigned long i = 0; i < 1200; i++)
   {
+    wdt_reset();
+    //writeTo(chipAddress, i, 0);
     EEPROM_Current_TIME = millis();
     Serial.print(i); Serial.print(". address data is: "); Serial.println(readFrom(chipAddress, i), HEX);
     EEPROM_RGB_BLINK();
