@@ -130,6 +130,9 @@ unsigned long CardNumberStore = 0;
 //const uint8_t ButtonDataPackage[3] = {111, 111, 253};
 const uint8_t ButtonDataPackage[9] = {111, 111, 21, 0, 0, 0, 0, 0, 0};
 const uint8_t RetryCardDataDownloadDataPackage[9] = {111, 111, 22, 0, 0, 0, 0, 0, 0};
+const uint8_t MasterUserDP[9] = {111, 111, 23, 0, 0, 0, 0, 0, 0};
+const uint8_t InvaildSingInGateDP[9] = {111, 111, 24, 0, 0, 0, 0, 0, 0};
+const uint8_t MasterUserDPQuit[9] = {111, 111, 25, 0, 0, 0, 0, 0, 0};
 int Button = 7;
 int ButtonVal;
 int ButtonValToDoorControl;
@@ -1795,6 +1798,8 @@ void ReadFromNextion()
         {
             BuzzNextionDenied();
             Serial.println("Denied");
+            Serial1.write(InvaildSingInGateDP, sizeof(InvaildSingInGateDP));
+            Serial1.write(DS3231Time, sizeof(DS3231Time));
         //Page0 Touch Release
         }else if(
           (NextionBuffer[0] == 0x65 && NextionBuffer[1] == 0x0) &&
@@ -1894,8 +1899,22 @@ void ReadFromNextion()
         {
           Serial.println("Page 1");
           SendEEPROM_conf_to_Nextion();
-        //Page 4 enter
-        }else if(NextionBuffer[0] == 13)
+          //Master User Entered
+        }else if(NextionBuffer[0] == 0x10 && NextionBuffer[1] == 0x11 && NextionBuffer[2] == 0x22)
+        {
+          Serial.println("Master User Enter.");
+          Serial1.write(MasterUserDP, sizeof(MasterUserDP));
+          Serial1.write(DS3231Time, sizeof(DS3231Time));
+          //Master User Quit
+        }else if(NextionBuffer[0] == 0xA0 && NextionBuffer[1] == 0xB0 && NextionBuffer[2] == 0xC0)
+        {
+          Serial.println("Master User Quit.");
+          Serial1.write(MasterUserDPQuit, sizeof(MasterUserDPQuit));
+          Serial1.write(DS3231Time, sizeof(DS3231Time));
+          NextionBuzzerQuit();
+          //Page 4 enter
+        }
+        else if(NextionBuffer[0] == 13)
         {
           Serial.println("Page 4");
                   
