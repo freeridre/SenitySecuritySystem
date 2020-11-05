@@ -1002,6 +1002,105 @@ void readfromoutsideLoRa()
         }
         //Serial3.println(i);
 
+      }else if(byteFromESP32[0] == 111 && byteFromESP32[1] == 111 && byteFromESP32[2] == 23)
+      {
+        Serial3.print("Master User Signed in at Gate at: ");
+        //Year
+        if (byteFromESP32[9] < 2100)
+        {
+          Serial3.print(20, DEC);Serial3.print(byteFromESP32[9], DEC);Serial3.print(".");
+        }
+        //month
+        if (byteFromESP32[10] < 10)
+        {
+          Serial3.print(0, DEC);
+        }
+        Serial3.print(byteFromESP32[10], DEC);Serial3.print(".");
+        //day
+        if (byteFromESP32[11] < 10)
+        {
+          Serial3.print(0, DEC);
+        }
+        Serial3.print(byteFromESP32[11], DEC);Serial3.print(".");
+        //dayofweek
+          Serial3.print(" (");Serial3.print(byteFromESP32[6], DEC);Serial3.print(") ");
+          //hour
+        if (byteFromESP32[13] < 10)
+        {
+          Serial3.print(0, DEC);
+        }
+        Serial3.print(byteFromESP32[13], DEC);Serial3.print(":");
+          //minutes
+        if (byteFromESP32[14] < 10)
+        {
+          Serial3.print(0, DEC);
+        }
+        Serial3.print(byteFromESP32[14], DEC);Serial3.print(":");
+        //seconds
+        if (byteFromESP32[15] < 10)
+        {
+          Serial3.print(0, DEC);
+        }
+        Serial3.print(byteFromESP32[15], DEC);Serial3.println();
+        //////
+        
+        //////
+        SendActionToMysql();
+        for (unsigned int z = 0; z < sizeof(byteFromESP32); z++)
+        {
+          byteFromESP32[z] = 0;
+          //Serial3.print(byteFromESP32[z]);
+        }
+      }
+      else if(byteFromESP32[0] == 111 && byteFromESP32[1] == 111 && byteFromESP32[2] == 24)
+      {
+        Serial3.print("Master User Signed in at Gate at: ");
+        //Year
+        if (byteFromESP32[9] < 2100)
+        {
+          Serial3.print(20, DEC);Serial3.print(byteFromESP32[9], DEC);Serial3.print(".");
+        }
+        //month
+        if (byteFromESP32[10] < 10)
+        {
+          Serial3.print(0, DEC);
+        }
+        Serial3.print(byteFromESP32[10], DEC);Serial3.print(".");
+        //day
+        if (byteFromESP32[11] < 10)
+        {
+          Serial3.print(0, DEC);
+        }
+        Serial3.print(byteFromESP32[11], DEC);Serial3.print(".");
+        //dayofweek
+          Serial3.print(" (");Serial3.print(byteFromESP32[6], DEC);Serial3.print(") ");
+          //hour
+        if (byteFromESP32[13] < 10)
+        {
+          Serial3.print(0, DEC);
+        }
+        Serial3.print(byteFromESP32[13], DEC);Serial3.print(":");
+          //minutes
+        if (byteFromESP32[14] < 10)
+        {
+          Serial3.print(0, DEC);
+        }
+        Serial3.print(byteFromESP32[14], DEC);Serial3.print(":");
+        //seconds
+        if (byteFromESP32[15] < 10)
+        {
+          Serial3.print(0, DEC);
+        }
+        Serial3.print(byteFromESP32[15], DEC);Serial3.println();
+        //////
+        
+        //////
+        SendActionToMysql();
+        for (unsigned int z = 0; z < sizeof(byteFromESP32); z++)
+        {
+          byteFromESP32[z] = 0;
+          //Serial3.print(byteFromESP32[z]);
+        }
       }
     }
     digitalWrite(35, LOW);
@@ -2761,6 +2860,18 @@ void SendActionToMysql()
     //////
     ReadedCard = true;
     //////
+  }else if(byteFromESP32[0] == 111 && byteFromESP32[1] == 111 && byteFromESP32[2] == 23)
+  {
+    ActionType = "23";
+    Serial3.println("Master User Signed in.");
+  }else if(byteFromESP32[0] == 111 && byteFromESP32[1] == 111 && byteFromESP32[2] == 24)
+  {
+    Serial3.println("Invailed code entered.");
+    ActionType = "24";
+  }else if(byteFromESP32[0] == 111 && byteFromESP32[1] == 111 && byteFromESP32[2] == 25)
+  {
+    Serial3.println("Master User Quit.");
+    ActionType = "25";
   }
 
     UidStringToMysql = "";
