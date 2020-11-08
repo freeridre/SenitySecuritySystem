@@ -98,6 +98,7 @@ void EEPROM_RGB_BLINK();
 void EEPROM_RGB_FINISH();
 void ACCOffline();
 void EEPROM_Vansiher();
+void RTCAdjustNextion();
 unsigned long EEPROM_Current_TIME = 0;
 unsigned long EEPROM_Passed_TIME = 0;
 unsigned long EEPROM_TIME_DIF = 50;
@@ -424,6 +425,7 @@ void sinelon()
     //FastLED.setBrightness(BRIGHTNESS1);
     fadeToBlackBy(leds,NUM_LEDS, 150);
     int pos = beatsin16(11, 0, NUM_LEDS-1);
+    
     //leds[pos] = (0U, 0U, 255U);
     leds[pos] = (CRGB::Blue);
 }
@@ -2073,7 +2075,93 @@ void ReadFromNextion()
             Serial.println("No cards stored in EEPROM.");
             SendEEPROM_conf_to_Nextion();
           }
-          //NextionBufferClear
+          //Send Current Time to Nextion RTC set page   
+        }else if(NextionBuffer[0] == 0xF0 &&NextionBuffer[1] == 0xD5 && NextionBuffer[2] == 0xB4)
+        {
+          Serial.println("Set RTC mode active.");
+          RTCAdjustNextion(); 
+          //NextionBufferClear 
+        }else if(NextionBuffer[0] == 0xA4 &&NextionBuffer[1] == 0xB4 && NextionBuffer[2] == 0xC5)
+        {
+          Serial.println("Nextion Time Data Package!");
+          boolean RTCGet = true;
+          DateTime RTCFNXT;
+          String RTCDATA = "";
+          uint16_t Year;
+          uint8_t Month;
+          uint8_t Day;
+          uint8_t Hour;
+          uint8_t Minute;
+          uint8_t Second;
+          do
+          {
+            RTCDATA = Serial3.readStringUntil('\r');
+            if(RTCDATA != "")
+            {
+              RTCGet = false;
+            }  
+          }while (RTCGet);
+          Serial.print("Get RTC Year Data: ");Serial.println(RTCDATA);
+          unsigned int RTCDataLen = RTCDATA.length();
+          Serial.print("Size of RTC Data is: "); Serial.println(RTCDataLen);
+          char RTCD[20];
+          char buf[sizeof(RTCD)];
+          RTCDATA.toCharArray(buf, sizeof(buf));
+          char * pch;
+          String CharToStr = "";
+          pch = strtok(buf, "-");
+          /*Serial.print("Year: "); Serial.print(pch[0]); Serial.print(pch[1]); Serial.print(pch[2]); Serial.print(pch[3]); Serial.println(" ");
+          Serial.print("Month: "); Serial.print(pch[5]); Serial.print(pch[6]); Serial.println(" ");
+          Serial.print("Day: "); Serial.print(pch[8]); Serial.print(pch[9]); Serial.println(" ");
+          Serial.print("Hour: "); Serial.print(pch[11]); Serial.print(pch[12]); Serial.println(" ");
+          Serial.print("Minute: "); Serial.print(pch[14]); Serial.print(pch[15]); Serial.println(" ");
+          Serial.print("Second: "); Serial.print(pch[17]); Serial.println(pch[18]); Serial.println(" ");*/
+          CharToStr += pch[0];
+          CharToStr += pch[1];
+          CharToStr += pch[2];
+          CharToStr += pch[3];
+          Serial.print("Year Char to Int is: ");Serial.println(CharToStr);
+          Year = CharToStr.toInt();
+          Serial.print("Year is: "); Serial.println(Year);
+
+          CharToStr = "";
+          CharToStr += pch[5];
+          CharToStr += pch[6];
+          Serial.print("Month Char to Int is: ");Serial.println(CharToStr);
+          Month = CharToStr.toInt();
+          Serial.print("Month is: "); Serial.println(Month);
+
+          CharToStr = "";
+          CharToStr += pch[8];
+          CharToStr += pch[9];
+          Serial.print("Day Char to Int is: ");Serial.println(CharToStr);
+          Day = CharToStr.toInt();
+          Serial.print("Month is: "); Serial.println(Day);
+
+          CharToStr = "";
+          CharToStr += pch[11];
+          CharToStr += pch[12];
+          Serial.print("Hour Char to Int is: ");Serial.println(CharToStr);
+          Hour = CharToStr.toInt();
+          Serial.print("Hour is: "); Serial.println(Hour);
+
+          CharToStr = "";
+          CharToStr += pch[14];
+          CharToStr += pch[15];
+          Serial.print("Minute Char to Int is: ");Serial.println(CharToStr);
+          Minute = CharToStr.toInt();
+          Serial.print("Minute is: "); Serial.println(Minute);
+
+          CharToStr = "";
+          CharToStr += pch[17];
+          CharToStr += pch[18];
+          Serial.print("Second Char to Int is: ");Serial.println(CharToStr);
+          Second = CharToStr.toInt();
+          Serial.print("Second is: "); Serial.println(Second);
+          //Input: 2018-12-31-00-11-21-
+                
+          rtc.adjust(DateTime(Year, Month, Day, Hour, Minute, Second) + TimeSpan(2));
+          //NextionBufferClear 
         }else
         {
             for (unsigned int i = 0; i < sizeof(NextionI); i++)
@@ -2094,6 +2182,7 @@ void ReadFromNextion()
       NextionI = 0;
       NextionDataRec = false;
 }
+
 void BuzzNextionSuccess()
 {
     for(int i = 0; i < 3; i++)
@@ -2734,4 +2823,35 @@ void SendEEPROM_conf_to_Nextion()
   //Serial.print("Number of cards sent to Nextion: "); Serial.println(eeprom_Card_Num_Cont_byteArray[3]);
   Serial.print("Number of cards sent to Nextion: "); Serial.println(ConvEpprom_Card_Num);
   Serial.print("Number of cards in Arduino EEPROM is: "); Serial.println(EEPROM.get(8, Ardu_EEPROM_Unsigned_Int));
+}
+void RTCAdjustNextion()
+{
+  TimeToNextion();
+  //Year
+  Serial3.print("page7.n6.val=");
+  Serial3.print(DS3231Time[0]+2000);
+  Serial3.print("\xFF\xFF\xFF");
+  //Month
+  Serial3.print("page7.n7.val=");
+  Serial3.print(DS3231Time[1]);
+  Serial3.print("\xFF\xFF\xFF");
+  //Day
+  Serial3.print("page7.n8.val=");
+  Serial3.print(DS3231Time[2]);
+  Serial3.print("\xFF\xFF\xFF");
+  //Hour
+  Serial3.print("page7.n9.val=");
+  Serial3.print(DS3231Time[4]);
+  Serial3.print("\xFF\xFF\xFF");
+  //Minute
+  Serial3.print("page7.n10.val=");
+  Serial3.print(DS3231Time[5]);
+  Serial3.print("\xFF\xFF\xFF");
+  //Second
+  Serial3.print("page7.n11.val=");
+  Serial3.print(DS3231Time[6]);
+  Serial3.print("\xFF\xFF\xFF");
+
+  //rtc.adjust("2015 11 06 23 50 20");
+  
 }
