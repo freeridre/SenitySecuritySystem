@@ -160,8 +160,10 @@ int RerturnDoorTimeOutCardReading;
 int ReedState;
 unsigned long SecondTime;
 boolean ReedStatusOn = false;
+void ReedSet();
 //How much time after opened door
-unsigned long WaitingOpenedDoor = 300; //150 = 8 ms; 18 = 1ms
+unsigned long WaitingOpenedDoor = 300;
+unsigned long NextionWaitingOpenedDoor; //150 = 8 ms; 18 = 1ms
 int PrevTimeDoorOpenedMillis = 0;
 int CurrentTimeDoorOpenedMillis = 0;
 //                                           sig, sig, inf
@@ -2161,6 +2163,32 @@ void ReadFromNextion()
           //Input: 2018-12-31-00-11-21-
                 
           rtc.adjust(DateTime(Year, Month, Day, Hour, Minute, Second) + TimeSpan(2));
+          //Set Reed page in nextion
+        }else if(NextionBuffer[0] == 0x63 &&NextionBuffer[1] == 0x62 && NextionBuffer[2] == 0x61)
+        {
+          SendEEPROM_conf_to_Nextion();
+          //Save REED TO EEPROM From Nextion
+        }else if(NextionBuffer[0] == 0x30 &&NextionBuffer[1] == 0x63 && NextionBuffer[2] == 0x51)
+        {
+          boolean REEDBOOL = true;
+          String REEDData;
+          do
+          {
+            REEDData = Serial3.readStringUntil('\r');
+            if(REEDData != "")
+            {
+              REEDBOOL = false;
+            }
+          }while(REEDBOOL);
+          unsigned int REEDDataLen = REEDData.length();
+          Serial.print("Got Reed Time delay: "); Serial.println(REEDData);
+          Serial.print("Time delay String length is: "); Serial.println(REEDDataLen);
+          unsigned int ReedDataInt = REEDData.toInt();
+          Serial.print("String to Unsigned int: "); Serial.println(ReedDataInt);
+          NextionWaitingOpenedDoor = (unsigned long)ReedDataInt;
+          Serial.print("Int to Unsigned Long: "); Serial.println(NextionWaitingOpenedDoor);
+          EEPROM.put(9, NextionWaitingOpenedDoor);
+          SendEEPROM_conf_to_Nextion();
           //NextionBufferClear 
         }else
         {
@@ -2736,6 +2764,10 @@ void InsideEEPROM_Conf_for_Nextion()
     //75% of Backlight is 75
     //100% of Backlight is 100
   //Address of cards status in EEPROM is address 6
+  //Address of last Card data bytes in EEPROM is address 7
+  //Address of number of cards in EEPROM is address 8
+  //Addres of Reed Time delay in EEPROM is address 9
+
 
 
   //Default Settings
@@ -2746,12 +2778,14 @@ void InsideEEPROM_Conf_for_Nextion()
   EEPROM.write(4, 7);
   EEPROM.write(5, 100);
   EEPROM.write(6, 0);
+  //EEPROM.put(9, WaitingOpenedDoor);
 
 
 }
 void SendEEPROM_conf_to_Nextion()
 {
   byte led_conf_val, pir_conf_val, reed_conf_val, buzzer_conf_val, led_conf_intesity_val, next_conf_dispblk_val, num_of_cards_eeprom_val = 0;
+  unsigned long Ardu_EEPROM_Unsigned_Long_Reed_Time_Delay = 0;
   led_conf_val = EEPROM.read(1);
   pir_conf_val = EEPROM.read(0);
   reed_conf_val = EEPROM.read(2);
@@ -2762,6 +2796,8 @@ void SendEEPROM_conf_to_Nextion()
   eeprom_Card_Num_Cont = readFrom(chipAddress, eeprom_Card_Num);
   unsigned int Ardu_EEPROM_Unsigned_Int;
   EEPROM.get(8, Ardu_EEPROM_Unsigned_Int);
+  EEPROM.get(9, Ardu_EEPROM_Unsigned_Long_Reed_Time_Delay);
+
   
   
   //Send Setup EEPROM data to Nextion
@@ -2823,6 +2859,12 @@ void SendEEPROM_conf_to_Nextion()
   //Serial.print("Number of cards sent to Nextion: "); Serial.println(eeprom_Card_Num_Cont_byteArray[3]);
   Serial.print("Number of cards sent to Nextion: "); Serial.println(ConvEpprom_Card_Num);
   Serial.print("Number of cards in Arduino EEPROM is: "); Serial.println(EEPROM.get(8, Ardu_EEPROM_Unsigned_Int));
+
+  Serial.print("Current Reed Time delay in Arduino EEPROM is: "); Serial.println(Ardu_EEPROM_Unsigned_Long_Reed_Time_Delay);
+  Serial3.print("page12.n8.val=");
+  Serial3.print(Ardu_EEPROM_Unsigned_Long_Reed_Time_Delay);
+  Serial3.print("\xFF\xFF\xFF");
+  
 }
 void RTCAdjustNextion()
 {
@@ -2854,4 +2896,8 @@ void RTCAdjustNextion()
 
   //rtc.adjust("2015 11 06 23 50 20");
   
+}
+void ReedSet()
+{
+
 }
