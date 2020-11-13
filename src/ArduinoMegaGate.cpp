@@ -162,7 +162,7 @@ unsigned long SecondTime;
 boolean ReedStatusOn = false;
 void ReedSet();
 //How much time after opened door
-unsigned long WaitingOpenedDoor = 300;
+unsigned long WaitingOpenedDoor;
 unsigned long NextionWaitingOpenedDoor; //150 = 8 ms; 18 = 1ms
 int PrevTimeDoorOpenedMillis = 0;
 int CurrentTimeDoorOpenedMillis = 0;
@@ -970,7 +970,7 @@ int DoorOpenedTimeOut(int ReturnDoorTimeOut)
       //if (CurrentTimeDoorOpenedMillis >= WaitingOpenedDoor)
 
       //Serial.println(DoorTimeOut);
-
+      EEPROM.get(9, WaitingOpenedDoor);
       if (DoorTimeOut >= WaitingOpenedDoor)
       {
         //PrevTimeDoorOpenedMillis = CurrentTimeDoorOpenedMillis;
@@ -1065,6 +1065,7 @@ int DoorOpenedTimeOut(int ReturnDoorTimeOut)
       DoorTimeOut++;
       /*Serial.print(DoorTimeOut);*/
       Serial.println(" Opened");
+      EEPROM.get(9, WaitingOpenedDoor);
       if (DoorTimeOut >= WaitingOpenedDoor)
       {
         ReedState = digitalRead(Reed);
