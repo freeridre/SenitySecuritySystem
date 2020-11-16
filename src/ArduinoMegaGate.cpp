@@ -160,7 +160,12 @@ int RerturnDoorTimeOutCardReading;
 int ReedState;
 unsigned long SecondTime;
 boolean ReedStatusOn = false;
-void ReedSet();
+#define HHC 12
+#define AHC 13
+int HHCVAL, AHCVAL;
+byte NetworkValHHC, NetworkValAHC;
+byte CurrentNetworkValHHC, CurrentNetworkValAHC;
+void PowMon();
 //How much time after opened door
 unsigned long WaitingOpenedDoor;
 unsigned long NextionWaitingOpenedDoor; //150 = 8 ms; 18 = 1ms
@@ -655,6 +660,8 @@ void setup()
   pinMode(BLUELIGHT_PIN, OUTPUT);
   pinMode(MagneticLock, OUTPUT);
   pinMode(Buzzer, OUTPUT);
+  pinMode(HHC, INPUT_PULLUP);
+  pinMode(AHC, INPUT_PULLUP);
   //analogWrite(Buzzer, BuzzerOn);
   if(BuzzerON)
   {
@@ -1235,7 +1242,7 @@ void loop()
   RecieveDataFromGateLoRa();
   ButtonPushedOutSide();
   HC05JDY30FUNCTION();
-  
+  PowMon();
   FastLED.show();
   
   
@@ -2898,7 +2905,59 @@ void RTCAdjustNextion()
   //rtc.adjust("2015 11 06 23 50 20");
   
 }
-void ReedSet()
+void PowMon()
 {
+    HHCVAL = digitalRead(HHC);
+    AHCVAL = digitalRead(AHC);
 
+    CurrentNetworkValHHC = NetworkValHHC;
+    CurrentNetworkValAHC = NetworkValAHC;
+
+    //Serial.println(CurrentNetworkValHHCHHC);
+
+    if(HHCVAL == LOW)
+    {
+        NetworkValHHC = 0;
+        
+    }else if(HHCVAL == HIGH)
+    {
+        NetworkValHHC = 1;
+    }
+
+    if ((CurrentNetworkValHHC != NetworkValHHC) && NetworkValHHC == 1)
+    {
+        Serial.println("Network is Off");
+        Serial3.print("page4.pow.val=");
+        Serial3.print(NetworkValHHC);
+        Serial3.print("\xFF\xFF\xFF");
+
+    }else if ((CurrentNetworkValHHC != NetworkValHHC) && NetworkValHHC == 0)
+    {
+        Serial.println("Network is On");
+        Serial3.print("page4.pow.val=");
+        Serial3.print(NetworkValHHC);
+        Serial3.print("\xFF\xFF\xFF");
+    }
+    
+    if(AHCVAL == LOW)
+    {
+        NetworkValAHC = 0;
+        
+    }else if(AHCVAL == HIGH)
+    {
+        NetworkValAHC = 1;
+    }
+    if ((CurrentNetworkValAHC != NetworkValAHC) && NetworkValAHC == 1)
+    {
+        Serial.println("Kimeneti egyenfeszultseg Hiba");
+        Serial3.print("page4.ups.val=");
+        Serial3.print(NetworkValAHC);
+        Serial3.print("\xFF\xFF\xFF");
+    }else if ((CurrentNetworkValAHC != NetworkValAHC) && NetworkValAHC == 0)
+    {
+        Serial.println("Kimeneti egyenfeszultseg Rendben");
+        Serial3.print("page4.ups.val=");
+        Serial3.print(NetworkValAHC);
+        Serial3.print("\xFF\xFF\xFF");
+    }  
 }
