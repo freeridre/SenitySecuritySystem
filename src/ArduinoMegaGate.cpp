@@ -431,7 +431,11 @@ void sinelon()
 {
     //FastLED.setBrightness(BRIGHTNESS1);
     fadeToBlackBy(leds,NUM_LEDS, 150);
-    int pos = beatsin16(11, 0, NUM_LEDS-1);
+    //leds->fadeToBlackBy(25);
+    
+    int pos = beatsin8(15, 0, NUM_LEDS-1);
+    //int pos = beatsin8(300, 0, 30);
+    
     
     //leds[pos] = (0U, 0U, 255U);
     leds[pos] = (CRGB::Blue);
