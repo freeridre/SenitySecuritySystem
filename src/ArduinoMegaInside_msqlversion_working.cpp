@@ -110,6 +110,7 @@ int StrToHex(char str[]);
 void ServerNTP();
 void SendNTPServerTimeToNextion();
 void TimeToNextion();
+int CardUpdateToDB();
 uint8_t PiNTP[17] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 unsigned int iu = 0;
 int icount;
@@ -126,6 +127,13 @@ String MySQLSeparator = ",";
 String MySQLCardNumbersReturn = "";
 String CardData = "";
 String MySQLCardDataToDBID = "";
+String MySQLCardDataUpdate = "";
+String MySQLCardDataUpdateID;
+String UpLastName, UpFirstName;
+unsigned long CurrUpdateCancel = millis();
+const long UpdateCancelInterval = 20000;
+unsigned long PrevUpdateCancel = 0;
+unsigned long CurrentUpdateCancelequ;
 int UIDCHRT = 0;
 int MySQLCardNumber = 0;
 int CardChoice2 = 0;
@@ -133,7 +141,11 @@ int CardNumberFromDb = 0;
 long int MySQLConnectionCurrTimeOut;
 long int MySQLConnectionPrevTimeOut;
 long int MySQLConnectionTimeOutInterval = 10000;
+const long CardUpdateTimeoutInterval = 3000;
+unsigned long CardUpdateTimeCurrent;
+unsigned long CardUpdateTimePrev = 0;
 int Counter = 0;
+unsigned int UInput;
 //////////////////////////////////////
 void accesscontrolV2();
 String MySQLAccessControlIdentifier = "3";
@@ -145,6 +157,7 @@ String uidString = "";
 String uidStringend = "*";
 String UidStringToMysql = "";
 boolean NMC = true;
+String UuserID;
 /////////////////////////////////////
 void LoRaReset()
 {
@@ -616,6 +629,7 @@ void DataFromNTP()
 void readfromoutsideLoRa()
 {
   NextionCurrentTime = millis();
+  UInput = 0;
   //DataFromNTP();
     //Serial3.println("ahahah");
     input_a = Serial3.read();
@@ -1214,6 +1228,8 @@ void setup() {
 }
 void loop()
 {
+  CardUpdateTimePrev = millis();
+  PrevUpdateCancel = millis();
   while(true)
   {
     SendTimeToNextion();
@@ -1223,10 +1239,11 @@ void loop()
     Serial3.println("||||||||||||||||||||||");
     Serial3.println("1 - Card Learning \n");
     Serial3.println("2 - Card Listing \n");
-    Serial3.println("3 - EEPROM Delete \n");
-    Serial3.println("4 - EEPROM Read Out All \n");
+    Serial3.println("3 - Local EEPROM Delete \n");
+    Serial3.println("4 - Local EEPROM Read Out All \n");
     Serial3.println("5 - Access Control \n");
-    Serial3.println("7 - Card Deleting");
+    Serial3.println("7 - Card Deleting \n");
+    Serial3.println("8 - Card Updating");
     Serial3.println("||||||||||||||||||||||\n");
     main_menu = 0;
     input_a = 0;
@@ -1265,6 +1282,9 @@ void loop()
       else if(input_a == '7')
       {
         CardDeleting();
+      }else if(input_a == '8')
+      {
+        CardUpdateToDB();
       }
   }
 }
@@ -1961,8 +1981,22 @@ void CardLearningMaster()
         }
         else if(CardAlRDYTaken2 == 'y' || CardAlRDYTaken2 == 'Y')
         {
-          MySQLCardDataToDB += MySQLCardDataToDBID + MySQLSeparator + FirstName + MySQLSeparator + LastName + MySQLSeparator;
-          CardLearningMaster();
+          if(MySQLCardDataToDBID == "47")
+          {
+            MySQLCardDataToDB += MySQLCardDataToDBID + MySQLSeparator + UpFirstName + MySQLSeparator + UpLastName + MySQLSeparator;
+            CardLearningMaster();
+          }else if(MySQLCardDataToDBID == "48")
+          {
+            
+            MySQLCardDataToDB += MySQLCardDataToDBID + MySQLSeparator + UuserID + MySQLSeparator;
+            CardLearningMaster();
+          }else
+          {
+            MySQLCardDataToDB += MySQLCardDataToDBID + MySQLSeparator + FirstName + MySQLSeparator + LastName + MySQLSeparator;
+            CardLearningMaster();
+          }
+          
+          
         }
       }
     }else if(MySQLCardNumbersReturn == "556")
@@ -1990,7 +2024,15 @@ void CardLearningMaster()
         //Serial3.println(1);
         if(CardChoice2 == 'y' || CardChoice2 == 'Y')
         {
-          CardLearningV3();
+          if(MySQLCardDataToDBID == "47" || MySQLCardDataToDBID == "48")
+          {
+            CardUpdateToDB();
+          }else
+          {
+            CardLearningV3();
+          }
+          
+          
         }
         else if(CardChoice2 == 'n' || CardChoice2 == 'N')
         {
@@ -3196,4 +3238,267 @@ void SendTimeToNextion()
         Serial2.write(0xff);
         Serial2.write(0xff);
     }
+}
+int CardUpdateToDB()
+{
+  Serial3.println("Please Choose Methodes:");
+  Serial3.println("Methode 1: Update User's Card by name - type 1");
+  Serial3.println("Methode 2: Update User's Card by User's ID - type 2");
+  boolean UInputBool, CardUpdateBool = true;
+  UpLastName, UpFirstName = "";
+  boolean UpFirstNameBool, UpLastNameBool, updatetry;
+  unsigned int UInputLen;
+  UpLastName.remove(0, 1000);
+  UpFirstName.remove(0, 1000);
+  PrevUpdateCancel = millis();
+  do
+  {
+    CardUpdateTimeCurrent = millis();
+    CardUpdateTimePrev = millis();
+    PrevUpdateCancel = millis();
+    //if(Serial3.available() > 0)
+    //{
+     
+      UInput = Serial3.read();
+      if(UInput == '6')
+      {
+        UInput = 0;
+        main_menu = 1;
+        loop();
+      }else if(UInput == '1')
+      {
+        UInput = 0;
+        Serial3.println("Update User's Card by name SELECTED");
+        Serial3.println("Please enter the first name!");
+        MySQLCardDataUpdateID = "26";
+        
+        unsigned int UpLastNameLen = UpLastName.length();
+        unsigned int UpFirstNameLen = UpFirstName.length();
+        Serial3.print("FirstName Length is: "); Serial3.println(UpFirstName);
+        Serial3.print("LastName Length is: "); Serial3.println(UpLastNameLen);
+        Serial3.print("UpLastName data is: "); Serial3.println(UpLastName);
+        while(UpLastNameLen == 0)
+        {
+          PrevUpdateCancel = millis();
+          //Serial3.println("Haguz!");
+          CardUpdateTimeCurrent = millis();
+          CardUpdateTimePrev = millis();
+          UpFirstName = Serial3.readString();
+          UpFirstNameLen = UpFirstName.length();
+          if(UpFirstNameLen != 0)
+          {
+            UpFirstNameBool = true;
+            Serial3.println(UpFirstName);
+            Serial3.println("Please Enter LastName!");
+            UpLastNameLen = UpLastName.length();
+            while(UpLastNameLen == 0)
+            {
+              PrevUpdateCancel = millis();
+              CardUpdateTimeCurrent = millis();
+              CardUpdateTimePrev = millis();
+              UpLastName = Serial3.readString();
+              UpLastNameLen = UpLastName.length();
+              if(UpLastNameLen != 0)
+              {
+                UpLastNameBool = true;
+                Serial3.println(UpLastName);
+                Serial3.print(UpFirstName); Serial3.print(" "); Serial3.println(UpLastName);
+                Serial3.println("Are you sure?");
+                Serial3.println("(y) - is yes, (n) is no");
+                while(UpLastNameBool)
+                {
+                  PrevUpdateCancel = millis();
+                  CardUpdateTimeCurrent = millis();
+                  CardUpdateTimePrev = millis();
+                  input_a = Serial3.read();
+                  if((input_a == 'y') || (input_a == 'Y'))
+                  {
+                    //Send Req Data To Pi MySQLDB
+                    MySQLCardDataUpdate = MySQLCardDataUpdateID + MySQLSeparator + UpFirstName + MySQLSeparator + UpLastName + MySQLSeparator;
+                    Serial3.print("Data to MYSQL to update Card: "); Serial3.println(MySQLCardDataUpdate);
+                    //FirstName = "";
+                    UpFirstNameBool = false;
+                    //LastName = "";
+                    UpLastNameBool = false;
+                    Serial.println(MySQLCardDataUpdate);
+                    //unsigned long CardUpdateTimeCurrent;
+                    //unsigned long CardUpdateTimePrev = 0;
+                    //const long CardUpdateTimeoutInterval = 10000;
+                    String MySQLUserReturnByte;
+                    boolean FindUser = true;
+                    long Result = 0;
+                    while(FindUser)
+                    {
+                      PrevUpdateCancel = millis();
+                      CardUpdateTimeCurrent = millis();
+                      Serial3.print("Current Time: "); Serial3.println(CardUpdateTimeCurrent);
+                      Serial3.print("Prev Time: "); Serial3.println(CardUpdateTimePrev);
+                      Result = CardUpdateTimeCurrent - CardUpdateTimePrev;
+                      Serial3.print("Result: "); Serial3.println(Result);
+                      MySQLUserReturnByte = Serial.readString();
+                      if(CardUpdateTimeCurrent - CardUpdateTimePrev >= CardUpdateTimeoutInterval)
+                      {
+                        CardUpdateTimePrev = CardUpdateTimeCurrent;
+                        Serial3.println("Failed to get back data from DB.");
+                        delay(3000);
+                        main_menu = 1;
+                        loop();
+                      }
+                      if(MySQLUserReturnByte == "214")
+                      {
+                        Serial3.print("Got the User Data: "); Serial3.println(MySQLUserReturnByte);
+                        Serial3.println("User Found!");
+                        CardUpdateTimePrev = CardUpdateTimeCurrent;
+                        FindUser = false;
+                        Serial3.println("Please Give the new card!");
+                        MySQLCardDataToDBID = "47";
+                        MySQLCardDataToDB = MySQLCardDataToDBID + MySQLSeparator + UpFirstName + MySQLSeparator + UpLastName + MySQLSeparator;
+                        //Itt tartok, mar csak a mysql updatet kell megcsinalni
+                        CardLearningMaster();
+                      }else if(MySQLUserReturnByte == "212")
+                      {
+                        Serial3.print("Got the User Data: "); Serial3.println(MySQLUserReturnByte);
+                        Serial3.println("No User Found!");
+                        Serial3.println("Maybe You missed some Characters!");
+                        //CardUpdateTimePrev = CardUpdateTimeCurrent;
+                        FindUser = false;
+                        Serial3.println("Would you like to try again? (y) - is yes, (n) is no)");
+                        updatetry = true;
+                        //CurrUpdateCancel = millis();
+                        //UpdateCancelInterval = 30000;
+                        
+                        
+                        while(updatetry)
+                        {
+                          CurrUpdateCancel = millis();
+                          //Serial3.print("Current UpTime: "); Serial3.println(CurrUpdateCancel);
+                          Serial3.print("Prev UpTime: "); Serial3.println(PrevUpdateCancel);
+                          CurrentUpdateCancelequ = CurrUpdateCancel - PrevUpdateCancel;
+                          Serial3.print("Timeout at UpdateCancel: "); Serial3.println(CurrentUpdateCancelequ);
+                          if(CurrUpdateCancel - PrevUpdateCancel >= UpdateCancelInterval)
+                          {
+                            PrevUpdateCancel = CurrUpdateCancel;
+                            Serial3.print("Prev UpTime after: "); Serial3.println(PrevUpdateCancel);
+                            Serial3.println("Waiting for log/action");
+                            readfromoutsideLoRa();
+                          }
+                          input_a = Serial3.read();
+                          if(input_a == 'y' || input_a == 'Y')
+                          {
+                            Serial3.println("Yes is selected");
+                            PrevUpdateCancel = CurrUpdateCancel;
+                            CardUpdateToDB();
+                          }else if(input_a == 'n' || input_a == 'N')
+                          {
+                            Serial3.println("No is selected");
+                            PrevUpdateCancel = CurrUpdateCancel;
+                            Serial3.println("Waiting for log/action");
+                            readfromoutsideLoRa();
+                          }
+                        }
+                        
+                      }
+                    }
+                    
+                  }else if((input_a == 'n') || (input_a == 'N'))
+                  {
+                    Serial3.print("Name: "); Serial3.print(UpFirstName); Serial3.print(" "); Serial3.print(UpLastName); Serial3.println(" Deleted.");
+                    UpFirstName = "";
+                    UpFirstNameBool = false;
+                    UpLastName = "";
+                    UpLastNameBool = false;
+                    CardUpdateToDB();
+                  } 
+                }
+              }
+            }
+          }
+
+        }
+      Serial3.println("Valamiert ide kerulok...");
+      }else if(UInput == '2')
+      {
+        UInput = 0;
+        MySQLCardDataUpdateID = "27";
+        Serial3.println("Update User's Card by User's ID SELECTED");
+        Serial3.println("Please Enter User's ID!");
+        boolean UIDBool, UIDBoolSure, ChngUID;
+        UIDBool = true;
+        UIDBoolSure = true;
+        ChngUID = true;
+        unsigned int UuserIDLen;
+        //UuserID.remove(0, 10000);
+        UuserIDLen = UuserID.length();
+        while(UIDBool)
+        {
+          
+          UuserID = Serial3.readString();
+          //Serial3.print("User ID is: ");Serial3.println(UuserID);
+          UuserIDLen = UuserID.length();
+          //Serial3.print("User ID length is: ");Serial3.println(UuserIDLen);
+          if (UuserIDLen != 0)
+          {
+            Serial3.print("Got the User ID: "); Serial3.println(UuserID);
+            Serial3.println("Are you sure?");
+            Serial3.println("(y) - is yes, (n) is no");
+            while (UIDBoolSure)
+            {
+              input_a = Serial3.read();
+              if((input_a == 'y') || (input_a == 'Y'))
+              {
+                MySQLCardDataUpdate = MySQLCardDataUpdateID + MySQLSeparator + UuserID + MySQLSeparator;
+                Serial3.print("Data to MYSQL to update Card: "); Serial3.println(MySQLCardDataUpdate);
+                Serial.println(MySQLCardDataUpdate);
+                boolean FindUserID = true;
+                String MySQLUserIDReturnByte;
+                while(FindUserID)
+                {
+                  MySQLUserIDReturnByte = Serial.readString();
+                  if(MySQLUserIDReturnByte == "528")
+                  {
+                    Serial3.println("User ID Found!");
+                    Serial3.println("Please Give the new card!");
+                    MySQLCardDataToDBID = "48";
+                    MySQLCardDataToDB = MySQLCardDataToDBID + MySQLSeparator + UuserID + MySQLSeparator;
+                    CardLearningMaster();
+                    UInput = 0;
+                  }else if(MySQLUserIDReturnByte == "529")
+                  {
+                    Serial3.println("No User ID Found!");
+                    Serial3.println("Waiting for log/action");
+                    readfromoutsideLoRa();
+                  }
+                }
+              }else if((input_a == 'n') || (input_a == 'N'))
+              {
+                input_a = 0;
+                Serial3.print("User ID: "); Serial3.print(UuserID); Serial3.println(" Deleted.");
+                Serial3.println("Would you like to change User ID?");
+                Serial3.println("(y) - is yes, (n) is no");
+                while(ChngUID)
+                {
+                  input_a = Serial3.read();
+                  if((input_a == 'y') || (input_a == 'Y'))
+                  {
+                    UInput = 50;
+                    //return UInput; // it's character 2 in ASCII
+                    CardUpdateToDB();
+
+                  }else if((input_a == 'n') || (input_a == 'N'))
+                  {
+                    
+                    Serial3.println("Waiting for log/action");
+                    readfromoutsideLoRa();
+                  }
+                }
+              }
+            }
+            
+          }
+        }
+      Serial3.println("Ide jottem valamiert.....");
+      }
+    //}
+  } while (CardUpdateBool);
+  
 }
