@@ -1975,6 +1975,8 @@ void CardLearningMaster()
           //CardLearningV3();
           main_menu = 1;
           //loop();
+          NMC = true;
+          CardReadOutMySQLv2();
           Serial3.println("Waiting for log/action");
           readfromoutsideLoRa();
           //return;
@@ -2026,6 +2028,7 @@ void CardLearningMaster()
         {
           if(MySQLCardDataToDBID == "47" || MySQLCardDataToDBID == "48")
           {
+            
             CardUpdateToDB();
           }else
           {
