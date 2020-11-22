@@ -2917,6 +2917,22 @@ void SendActionToMysql()
   {
     Serial3.println("Master User Quit.");
     ActionType = "25";
+  }else if(byteFromESP32[0] == 111 && byteFromESP32[1] == 111 && byteFromESP32[2] == 26)
+  {
+    Serial3.println("Power Cable is plugged in.");
+    ActionType = "26";
+  }else if(byteFromESP32[0] == 111 && byteFromESP32[1] == 111 && byteFromESP32[2] == 27)
+  {
+    Serial3.println("Power Cable is unplugged.");
+    ActionType = "27";
+  }else if(byteFromESP32[0] == 111 && byteFromESP32[1] == 111 && byteFromESP32[2] == 28)
+  {
+    Serial3.println("Powersupply DC Output power is sufficient.");
+    ActionType = "28";
+  }else if(byteFromESP32[0] == 111 && byteFromESP32[1] == 111 && byteFromESP32[2] == 29)
+  {
+    Serial3.println("Powersupply DC Output power is insufficient.");
+    ActionType = "29";
   }
 
     UidStringToMysql = "";
