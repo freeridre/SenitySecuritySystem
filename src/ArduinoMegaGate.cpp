@@ -134,6 +134,15 @@ const uint8_t RetryCardDataDownloadDataPackage[9] = {111, 111, 22, 0, 0, 0, 0, 0
 const uint8_t MasterUserDP[9] = {111, 111, 23, 0, 0, 0, 0, 0, 0};
 const uint8_t InvaildSingInGateDP[9] = {111, 111, 24, 0, 0, 0, 0, 0, 0};
 const uint8_t MasterUserDPQuit[9] = {111, 111, 25, 0, 0, 0, 0, 0, 0};
+//Van tapbemenet
+uint8_t HHCDPOn[9] = {111, 111, 26, 0, 0, 0, 0, 0, 0};
+//Nincs tapbemenet
+uint8_t HHCDPOff[9] = {111, 111, 27, 0, 0, 0, 0, 0, 0};
+//Kimeneti DC rendben
+uint8_t AHCDPOn[9] = {111, 111, 28, 0, 0, 0, 0, 0, 0};
+//Kimeneti DC hiba
+uint8_t AHCDPOff[9] = {111, 111, 29, 0, 0, 0, 0, 0, 0};
+
 int Button = 7;
 int ButtonVal;
 int ButtonValToDoorControl;
@@ -166,6 +175,7 @@ int HHCVAL, AHCVAL;
 byte NetworkValHHC, NetworkValAHC;
 byte CurrentNetworkValHHC, CurrentNetworkValAHC;
 void PowMon();
+void PowMonAtStart();
 //How much time after opened door
 unsigned long WaitingOpenedDoor;
 unsigned long NextionWaitingOpenedDoor; //150 = 8 ms; 18 = 1ms
@@ -757,6 +767,7 @@ void setup()
   eeprom_Card_Num_Cont = readFrom(chipAddress, eeprom_Card_Num);
   Serial.print("Last Card data address is: "); Serial.println(eeprom_All_Card_Data_Bytes_Cont);
   Serial.print("Number of Card is: "); Serial.println(eeprom_Card_Num_Cont);
+  PowMonAtStart();
 }
 void RecieveDataFromGateLoRa()
 {
@@ -2934,6 +2945,26 @@ void PowMon()
         Serial3.print("page4.pow.val=");
         Serial3.print(NetworkValHHC);
         Serial3.print("\xFF\xFF\xFF");
+        //Send Data To LoRa
+        //TimeStamp();
+        //Year
+        HHCDPOff[3] = DS3231Time[0];
+        //Month
+        HHCDPOff[4] = DS3231Time[1];
+        //Day
+        HHCDPOff[5] = DS3231Time[2];
+        //Hour
+        HHCDPOff[6] = DS3231Time[4];
+        //Minute
+        HHCDPOff[7] = DS3231Time[5];
+        //Second
+        HHCDPOff[8] = DS3231Time[6];
+        Serial1.write(HHCDPOff, sizeof(HHCDPOff));
+        Serial1.write(DS3231Time, sizeof(DS3231Time));
+        for (unsigned int i = 0; i < sizeof(HHCDPOff); i++)
+        {
+          Serial.print(i); Serial.print(". "); Serial.println(HHCDPOff[i]);
+        }
 
     }else if ((CurrentNetworkValHHC != NetworkValHHC) && NetworkValHHC == 0)
     {
@@ -2941,6 +2972,26 @@ void PowMon()
         Serial3.print("page4.pow.val=");
         Serial3.print(NetworkValHHC);
         Serial3.print("\xFF\xFF\xFF");
+        //Send Data To LoRa
+        //TimeStamp();
+        //Year
+        HHCDPOn[3] = DS3231Time[0];
+        //Month
+        HHCDPOn[4] = DS3231Time[1];
+        //Day
+        HHCDPOn[5] = DS3231Time[2];
+        //Hour
+        HHCDPOn[6] = DS3231Time[4];
+        //Minute
+        HHCDPOn[7] = DS3231Time[5];
+        //Second
+        HHCDPOn[8] = DS3231Time[6];
+        Serial1.write(HHCDPOn, sizeof(HHCDPOn));
+        Serial1.write(DS3231Time, sizeof(DS3231Time));
+        for (unsigned int i = 0; i < sizeof(HHCDPOn); i++)
+        {
+          Serial.print(i); Serial.print(". "); Serial.println(HHCDPOn[i]);
+        }
     }
     
     if(AHCVAL == LOW)
@@ -2957,11 +3008,115 @@ void PowMon()
         Serial3.print("page4.ups.val=");
         Serial3.print(NetworkValAHC);
         Serial3.print("\xFF\xFF\xFF");
+        //Send Data To LoRa
+        //TimeStamp();
+        //Year
+        AHCDPOff[3] = DS3231Time[0];
+        //Month
+        AHCDPOff[4] = DS3231Time[1];
+        //Day
+        AHCDPOff[5] = DS3231Time[2];
+        //Hour
+        AHCDPOff[6] = DS3231Time[4];
+        //Minute
+        AHCDPOff[7] = DS3231Time[5];
+        //Second
+        AHCDPOff[8] = DS3231Time[6];
+        Serial1.write(AHCDPOff, sizeof(AHCDPOff));
+        Serial1.write(DS3231Time, sizeof(DS3231Time));        
     }else if ((CurrentNetworkValAHC != NetworkValAHC) && NetworkValAHC == 0)
     {
         Serial.println("Kimeneti egyenfeszultseg Rendben");
         Serial3.print("page4.ups.val=");
         Serial3.print(NetworkValAHC);
         Serial3.print("\xFF\xFF\xFF");
+        //Send Data To LoRa
+        //TimeStamp();
+        //Year
+        AHCDPOn[3] = DS3231Time[0];
+        //Month
+        AHCDPOn[4] = DS3231Time[1];
+        //Day
+        AHCDPOn[5] = DS3231Time[2];
+        //Hour
+        AHCDPOn[6] = DS3231Time[4];
+        //Minute
+        AHCDPOn[7] = DS3231Time[5];
+        //Second
+        AHCDPOn[8] = DS3231Time[6];
+        Serial1.write(AHCDPOn, sizeof(AHCDPOn));
+        Serial1.write(DS3231Time, sizeof(DS3231Time));
+    }  
+}
+void PowMonAtStart()
+{
+    HHCVAL = digitalRead(HHC);
+    AHCVAL = digitalRead(AHC);
+
+    //CurrentNetworkValHHC = NetworkValHHC;
+    //CurrentNetworkValAHC = NetworkValAHC;
+
+    //Serial.println(CurrentNetworkValHHCHHC);
+
+    if(HHCVAL == LOW)
+    {
+        NetworkValHHC = 0;
+        
+    }else if(HHCVAL == HIGH)
+    {
+        NetworkValHHC = 1;
+    }
+
+    if (NetworkValHHC == 1)
+    {
+        Serial.println("Network is Off");
+        Serial3.print("page4.pow.val=");
+        Serial3.print(NetworkValHHC);
+        Serial3.print("\xFF\xFF\xFF");
+        //Send Data To LoRa
+        TimeStamp();
+        Serial1.write(HHCDPOff, sizeof(HHCDPOff));
+        Serial1.write(DS3231Time, sizeof(DS3231Time));
+
+    }else if (NetworkValHHC == 0)
+    {
+        Serial.println("Network is On");
+        Serial3.print("page4.pow.val=");
+        Serial3.print(NetworkValHHC);
+        Serial3.print("\xFF\xFF\xFF");
+        //Send Data To LoRa
+        TimeStamp();
+        Serial1.write(HHCDPOn, sizeof(HHCDPOn));
+        Serial1.write(DS3231Time, sizeof(DS3231Time));
+    }
+    
+    if(AHCVAL == LOW)
+    {
+        NetworkValAHC = 0;
+        
+    }else if(AHCVAL == HIGH)
+    {
+        NetworkValAHC = 1;
+    }
+    if (NetworkValAHC == 1)
+    {
+        Serial.println("Kimeneti egyenfeszultseg Hiba");
+        Serial3.print("page4.ups.val=");
+        Serial3.print(NetworkValAHC);
+        Serial3.print("\xFF\xFF\xFF");
+        //Send Data To LoRa
+        TimeStamp();
+        Serial1.write(AHCDPOff, sizeof(AHCDPOff));
+        Serial1.write(DS3231Time, sizeof(DS3231Time));        
+    }else if (NetworkValAHC == 0)
+    {
+        Serial.println("Kimeneti egyenfeszultseg Rendben");
+        Serial3.print("page4.ups.val=");
+        Serial3.print(NetworkValAHC);
+        Serial3.print("\xFF\xFF\xFF");
+        //Send Data To LoRa
+        TimeStamp();
+        Serial1.write(AHCDPOn, sizeof(AHCDPOn));
+        Serial1.write(DS3231Time, sizeof(DS3231Time));
     }  
 }
