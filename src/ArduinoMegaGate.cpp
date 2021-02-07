@@ -12,7 +12,7 @@
 #include <RTClib.h>
 //#include <Nextion.h>
 #define LED_PIN               30
-#define NUM_LEDS              12
+#define NUM_LEDS              24
 #define BRIGHTNESS1           255
 #define BRIGHTNESS2           192
 #define BRIGHTNESS3           129
@@ -49,15 +49,27 @@ uint8_t HC05Status[3] = {111, 111, 99};
 #define PN532_MOSI (51)
 #define PN532_SS   (53)
 #define PN532_MISO (50)
+//For I2C
+#define PN532_IRQ (2)
+#define PN532_RESET (3)
+//For SPI
 Adafruit_PN532 nfc(PN532_SCK, PN532_MISO, PN532_MOSI, PN532_SS);
+//digitalWrite(PN532_SS, HIGH);
+//For I2C
+//Adafruit_PN532 nfc(PN532_IRQ, PN532_RESET);
 uint8_t NFCbuf[128];
 int a = 9;
 int uidsendtolora = 0;
 uint8_t success;
 uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
+boolean ret;
+boolean Card_dat_down_No_Card = true;
 uint8_t uidLength, timeout;                        // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
-uint8_t uidDataPackage[] = {255, 255, 0, 0, 0, 0, 0, 0, 0};
-uint8_t SecurityDataPackage[] = {111, 111, 20, 0, 0, 0, 0, 0, 0};
+uint8_t uidDataPackage[18] = {255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+uint8_t SecurityDataPackage[18] = {111, 111, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+uint8_t StartDP[18] = {111, 111, 35, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+void SendStartToDB();
 byte uidBytesCount = 0;
 uint8_t CardExtension [3] = {0, 0, 0};
 byte uidLengthplus = 0;
@@ -67,14 +79,19 @@ void BuzzerCarding();
 boolean BuzzerON;
 byte BuzzerPreConf;
 
+unsigned long CardingImpulseInterval = 40;
+unsigned long CardingImpulsePrev = millis();
+unsigned long CardingImpulseCurrentMillis = 0;
+void CardingTimeOut();
+
 int On = 255, Off = 0, Standby = 50;
 //int BuzzerOn = 0, BuzzerOff = 255;
 int BuzzerFrequency1 = 2000; int BuzzerFrequency2 = 2100; int BuzzerFrequency3 = 2200; int BuzzerFrequency4 = 2300; int BuzzerFrequency5 = 2400;
 int BuzzerLowFreq1 = 1500;
 int Buzzer = 31;
 //EEPROM_RGB_PINOUTS
-int REDLIGHT_PIN = 2;
-int GRRENLIGHT_PIN = 3;
+//int REDLIGHT_PIN = 2;
+//int GRRENLIGHT_PIN = 3;
 int BLUELIGHT_PIN = 4;
 //EEPROM_24AA1025/24LC1025/24FC1025EEPROM
 //if A0, A1, A2 to GND and
@@ -111,6 +128,7 @@ void EEPROM_RGB(int redlight_value, int greenlight_value, int bluelight_value);
 void EEPROM_RGB_BLINK();
 boolean EEPROM_RGB_BLINK_BOOL = false;
 void EEPROM_RGB_FINISH();
+void RCDDSucc();
 unsigned long eeprom_Card_Num = 127900;
 unsigned long eeprom_All_Card_Data_Bytes = 126900;
 unsigned long eeprom_Card_Num_Cont = 0;
@@ -129,20 +147,25 @@ unsigned long CardNumberStore = 0;
 //Button init
 //                              sig, sig, inf
 //const uint8_t ButtonDataPackage[3] = {111, 111, 253};
-const uint8_t ButtonDataPackage[9] = {111, 111, 21, 0, 0, 0, 0, 0, 0};
-const uint8_t RetryCardDataDownloadDataPackage[9] = {111, 111, 22, 0, 0, 0, 0, 0, 0};
-const uint8_t MasterUserDP[9] = {111, 111, 23, 0, 0, 0, 0, 0, 0};
-const uint8_t InvaildSingInGateDP[9] = {111, 111, 24, 0, 0, 0, 0, 0, 0};
-const uint8_t MasterUserDPQuit[9] = {111, 111, 25, 0, 0, 0, 0, 0, 0};
+uint8_t ButtonDataPackage[18] = {111, 111, 21, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+uint8_t RetryCardDataDownloadDataPackage[18] = {111, 111, 22, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+uint8_t MasterUserDP[18] = {111, 111, 23, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+uint8_t InvaildSingInGateDP[18] = {111, 111, 24, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+uint8_t MasterUserDPQuit[18] = {111, 111, 25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 //Van tapbemenet
-uint8_t HHCDPOn[9] = {111, 111, 26, 0, 0, 0, 0, 0, 0};
+uint8_t HHCDPOn[18] = {111, 111, 26, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 //Nincs tapbemenet
-uint8_t HHCDPOff[9] = {111, 111, 27, 0, 0, 0, 0, 0, 0};
+uint8_t HHCDPOff[18] = {111, 111, 27, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 //Kimeneti DC rendben
-uint8_t AHCDPOn[9] = {111, 111, 28, 0, 0, 0, 0, 0, 0};
+uint8_t AHCDPOn[18] = {111, 111, 28, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 //Kimeneti DC hiba
-uint8_t AHCDPOff[9] = {111, 111, 29, 0, 0, 0, 0, 0, 0};
-
+uint8_t AHCDPOff[18] = {111, 111, 29, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+//Bluetooth connection
+uint8_t HC05SmartPhoneDp[18] = {111, 111, 33, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+//Retry Card data download was Success
+uint8_t RCDDSuccessDP[18] = {111, 111, 34, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+//Retry Card data download was Failed
+uint8_t RCDDFailed[18] = {111, 111, 36, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 int Button = 7;
 int ButtonVal;
 int ButtonValToDoorControl;
@@ -163,7 +186,8 @@ DateTime now;
 uint8_t LORA_RESET[3] = { 111, 111, 111};
 //How much time after Motion detect.
 unsigned int PowerOnTime = 10;
-//MagnetReed
+//Magnet
+unsigned long Ardu_EEPROM_Unsigned_Long_Reed_Time_Delay;
 const int Reed = 9;
 int RerturnDoorTimeOutCardReading;
 int ReedState;
@@ -182,8 +206,8 @@ unsigned long NextionWaitingOpenedDoor; //150 = 8 ms; 18 = 1ms
 int PrevTimeDoorOpenedMillis = 0;
 int CurrentTimeDoorOpenedMillis = 0;
 //                                           sig, sig, inf
-uint8_t DOORSTATUS__CLOSED_DATAPACKAGE[9] = {111, 111, 254, 0, 0, 0, 0, 0, 0};
-uint8_t DOORSTATUS_OPENED_DATAPACKAGE[9] = {111, 111, 255, 0, 0, 0, 0, 0, 0};
+uint8_t DOORSTATUS__CLOSED_DATAPACKAGE[18] = {111, 111, 254, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+uint8_t DOORSTATUS_OPENED_DATAPACKAGE[18] = {111, 111, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 //DoorOpenedStat
 byte DOORSTATUS = 9;
 byte DoorOpenedStatus = 0;
@@ -195,6 +219,7 @@ unsigned long ReturnDoorTimeOut;
 unsigned int DoorOpenStatusForWS2812B = 0;
 unsigned long FunctionReturnDoorTimeOut;
 void EEPROM_TIME_OUT_F();
+void InsideEEPROM_Conf_for_Nextion();
 //ControlData
 uint8_t ControlData[6] = {0, 0, 0, 0, 0, 0};
 int CTD = 0;
@@ -439,16 +464,20 @@ for(int i = 0; i < NUM_LEDS; i++ )
 }*/
 void sinelon()
 {
+  if(!EEPROM_RGB_BLINK_BOOL)
+  {
     //FastLED.setBrightness(BRIGHTNESS1);
-    fadeToBlackBy(leds,NUM_LEDS, 150);
+    fadeToBlackBy(leds,NUM_LEDS, 100);
     //leds->fadeToBlackBy(25);
     
     int pos = beatsin8(15, 0, NUM_LEDS-1);
+    //long pos = beatsin8(10, 0, NUM_LEDS-1);
     //int pos = beatsin8(300, 0, 30);
     
     
     //leds[pos] = (0U, 0U, 255U);
     leds[pos] = (CRGB::Blue);
+  }
 }
 void setColor(int Red, int Green, int Blue)
 {
@@ -457,8 +486,8 @@ void setColor(int Red, int Green, int Blue)
     Green = 255 - GreenPin;
     BluePin = 255 - BluePin;
   #endif
-  analogWrite(REDLIGHT_PIN, Red);
-  analogWrite(GRRENLIGHT_PIN, Green);
+  //analogWrite(REDLIGHT_PIN, Red);
+  //analogWrite(GRRENLIGHT_PIN, Green);
   analogWrite(BLUELIGHT_PIN, Blue);
   
 }
@@ -553,7 +582,6 @@ void LedBuzzerAccessGranted()
   //analogWrite(Buzzer, BuzzerOn);
   if(BuzzerON)
   {
-    Serial.print("Sipolok");
     tone(Buzzer, BuzzerFrequency1);
   }
   delay(150);
@@ -580,8 +608,9 @@ void LedBuzzerAccessGranted()
 
   //setColor(Off, Off, Off);
   analogWrite(MagneticLock, Off);
-  WS2812BBlack();
-  FastLED.show();
+  //WS2812BBlack();
+  sinelon();
+  //FastLED.show();
   //analogWrite(Buzzer, BuzzerOff);
   if(BuzzerON)
   {
@@ -601,9 +630,9 @@ void LedBuzzerAccessDenied()
     //leds[ledx] = (255, 0, 0);
     leds[ledx] = (CRGB::Red);
   }
-//setColor(On, Off, Off);
-WS2812BRed();
-FastLED.show();
+  //setColor(On, Off, Off);
+  WS2812BRed();
+  FastLED.show();
   //analogWrite(Buzzer, BuzzerOn);
   if(BuzzerON)
   {
@@ -612,6 +641,7 @@ FastLED.show();
   delay(150);
   //setColor(Off, Off, Off);
   WS2812BBlack();
+  //sinelon();
   FastLED.show();
   //analogWrite(Buzzer, BuzzerOff);
   if(BuzzerON)
@@ -669,8 +699,8 @@ void setup()
   //EEPROM.put(0, 2);
   
   //FastLED.addLeds<LED_TYPE,LED_PIN,COLOR_ORDER>(leds, NUM_LEDS);
-  pinMode(REDLIGHT_PIN, OUTPUT);
-  pinMode(GRRENLIGHT_PIN, OUTPUT);
+  //pinMode(REDLIGHT_PIN, OUTPUT);
+  //pinMode(GRRENLIGHT_PIN, OUTPUT);
   pinMode(BLUELIGHT_PIN, OUTPUT);
   pinMode(MagneticLock, OUTPUT);
   pinMode(Buzzer, OUTPUT);
@@ -712,7 +742,7 @@ void setup()
   //InsideEEPROM_Conf();
 
   NextionReadArduinoEEPROM();
-
+  Serial.println("Ittasf");
   //rtc.begin();
   NextionStartTime = millis();
   //////////////////////////////////////
@@ -767,13 +797,16 @@ void setup()
   eeprom_Card_Num_Cont = readFrom(chipAddress, eeprom_Card_Num);
   Serial.print("Last Card data address is: "); Serial.println(eeprom_All_Card_Data_Bytes_Cont);
   Serial.print("Number of Card is: "); Serial.println(eeprom_Card_Num_Cont);
+  SendStartToDB();
+  delay(1000);
   PowMonAtStart();
+  //InsideEEPROM_Conf_for_Nextion();
 }
 void RecieveDataFromGateLoRa()
 {
   //EEPROMDeleteAll();
   String CardDataNUMBERFROMLoRa = "";
-  boolean CARDDBool = false;
+  //boolean CARDDBool = false;
   while(Serial1.available() > 0)
   {
     ControlData[CTD] = Serial1.read();
@@ -788,7 +821,7 @@ void RecieveDataFromGateLoRa()
   
   if(CTD != 0)
   {
-    Serial.println("Data form OutSide Lora is: ");
+    Serial.println("Data from OutSide Lora is: ");
     for (unsigned int i = 0; i < sizeof(ControlData); i ++)
     {
       if(ControlData[i] != 0)
@@ -813,6 +846,9 @@ void RecieveDataFromGateLoRa()
     Serial.println("Waiting for an ISO14443A Card ...");
   }else if (ControlData[0] == 255 && ControlData[1] == 254)
   {
+    //Card_dat_down_No_Card = true;
+    EEPROM_RGB_BLINK_BOOL = true;
+    Card_dat_down_No_Card = false;
     Serial.println("It's card data package!");
     //eeprom_All_Card_Data_Bytes_Cont = 0;
     //Send Card flag to Nextion
@@ -825,6 +861,7 @@ void RecieveDataFromGateLoRa()
     //EEPROM_TIME_OUT_F();
   }else if(ControlData[0] == 0x2A && ControlData[1] == 0x2A && ControlData[2] == 0x2D && ControlData[4] == 0x2A)
   {
+    Card_dat_down_No_Card = false;
     //how much card in DB
     EEPROM_RGB_BLINK_BOOL = true;
     EEPROM_RGB_BLINK();
@@ -854,20 +891,30 @@ void RecieveDataFromGateLoRa()
     
   }else if(ControlData[0] == 63 && ControlData[1] == 63 && ControlData[2] == 64)
   {
-    EEPROM_RGB_FINISH();
+    //End of number of cards from DB
+    //EEPROM_RGB_FINISH();
+    EEPROM_RGB_BLINK();
     EEPROM_RGB(0, 255, 0);
+    Card_dat_down_No_Card = false;
     
 
     //writeTo(chipAddress, eeprom_All_Card_Data_Bytes, 0);
   }else if(ControlData[0] == 113 && ControlData[1] == 113 && ControlData[2] == 239)
   {
+    //Card_dat_down_No_Card = true;
     Serial.println("Card Data Download finished");
     Serial3.print("page11.RDDDTimeout.val=");
     Serial3.print(599);
     Serial3.print("\xFF\xFF\xFF");
     SendEEPROM_conf_to_Nextion();
+    Card_dat_down_No_Card = true;
+    EEPROM_RGB_FINISH();
+    RCDDSucc();
   }else if(ControlData[0] == 113 && ControlData[1] == 113 && ControlData[2] == 240)
   {
+    EEPROM_RGB_BLINK_BOOL = true;
+    EEPROM_RGB_BLINK();
+    Card_dat_down_No_Card = false;
     Serial.println("Connection established");
     Serial3.print("page11.RDDDTimeout.val=");
     Serial3.print(122);
@@ -879,6 +926,7 @@ void RecieveDataFromGateLoRa()
     Serial3.print("page11.RDDDTimeout.val=");
     Serial3.print(600);
     Serial3.print("\xFF\xFF\xFF");
+    Card_dat_down_No_Card = true;
   }
   //EEPROM_RGB_FINISH();
  //Release Data
@@ -931,7 +979,7 @@ void CardfromDBToEEPROM()
   EEPROM.put(7, eeprom_All_Card_Data_Bytes_Cont);
   writeTo(chipAddress, eeprom_All_Card_Data_Bytes, eeprom_All_Card_Data_Bytes_Cont);
   EEPROM_RGB_BLINK();
-  unsigned long i = 0;
+  //unsigned long i = 0;
   Serial.print("Actual cards in eeprom: ");
   Serial.println(readFrom(chipAddress, eeprom_Card_Num));
   
@@ -959,13 +1007,33 @@ void HC05JDY30FUNCTION()
     if (state == 1)
     {
       LedBuzzerAccessGranted();
-      TimeStamp();
-      Serial1.write(HC05Status, sizeof(HC05Status));
-      Serial1.write(DS3231Time, sizeof(DS3231Time));
+      //TimeStamp();
+      //Serial1.write(HC05Status, sizeof(HC05Status));
+      //Serial1.write(DS3231Time, sizeof(DS3231Time));
       Serial.println("Access Granted, door has just opened by SmartPhoneApp!");
+      TimeStamp();
+      //Year
+      HC05SmartPhoneDp[9] = DS3231Time[0];
+      //Month
+      HC05SmartPhoneDp[10] = DS3231Time[1];
+      //Day
+      HC05SmartPhoneDp[11] = DS3231Time[2];
+      //Hour
+      HC05SmartPhoneDp[12] = DS3231Time[4];
+      //Minute
+      HC05SmartPhoneDp[13] = DS3231Time[5];
+      //Second
+      HC05SmartPhoneDp[14] = DS3231Time[6];
+      Serial1.write(HC05SmartPhoneDp, sizeof(HC05SmartPhoneDp));
+      for (unsigned int i = 0; i < sizeof(HHCDPOff); i++)
+      {
+        Serial.print(i); Serial.print(". "); Serial.println(HC05SmartPhoneDp[i]);
+      }
+
+      //Serial1.write(DS3231Time, sizeof(DS3231Time));
     }
   }
-  return;
+  //return;
 }
 int DoorOpenedTimeOut(int ReturnDoorTimeOut)
 {
@@ -995,6 +1063,8 @@ int DoorOpenedTimeOut(int ReturnDoorTimeOut)
       EEPROM.get(9, WaitingOpenedDoor);
       if (DoorTimeOut >= WaitingOpenedDoor)
       {
+        Serial.print("Door Time Out: "); Serial.println(DoorTimeOut);
+        Serial.print("Door WaitingOpenedDoor Value: "); Serial.println(WaitingOpenedDoor);
         //PrevTimeDoorOpenedMillis = CurrentTimeDoorOpenedMillis;
         //Nem fog túlcsordulni
         if(DOORSTATUS >= 10)
@@ -1023,7 +1093,8 @@ int DoorOpenedTimeOut(int ReturnDoorTimeOut)
           Serial.print(DoorTimeOut); Serial.println("Released");
           setColor(Off, Off, Standby);
         }*/
-        return ReturnDoorTimeOut = 1;
+        ReturnDoorTimeOut = 1;
+        return ReturnDoorTimeOut;
       }
       ReturnDoorTimeOut = 2;
     }
@@ -1142,12 +1213,12 @@ void loop()
   SendTimeToNextion();
   
   
-    MOTIONPIR(PIRStateControl);
+  MOTIONPIR(PIRStateControl);
   
   DoorOpenedTimeOut(ReturnDoorTimeOut);
   
   
-    ReturnMOTIONPIR = MOTIONPIR(PIRStateControl);
+  ReturnMOTIONPIR = MOTIONPIR(PIRStateControl);
   
   //Serial.print("ReturnMOTIONPIR: "); Serial.println(ReturnMOTIONPIR);
   int ReturnReturnDoorTimeOut = DoorOpenedTimeOut(ReturnDoorTimeOut);
@@ -1184,12 +1255,24 @@ void loop()
     WaitingPIR = 0;
     }*/
 //Serial.print("Zarva!"); Serial.println(DOORSTATUS);
-  if (DOORSTATUS == 8)
+    if (DOORSTATUS == 8)
       {
         Serial.print("The Door is Closed at: ");
         TimeStamp();
+        DOORSTATUS__CLOSED_DATAPACKAGE[9] = DS3231Time[0];
+        //Month
+        DOORSTATUS__CLOSED_DATAPACKAGE[10] = DS3231Time[1];
+        //Day
+        DOORSTATUS__CLOSED_DATAPACKAGE[11] = DS3231Time[2];
+        //Hour
+        DOORSTATUS__CLOSED_DATAPACKAGE[12] = DS3231Time[4];
+        //Minute
+        DOORSTATUS__CLOSED_DATAPACKAGE[13] = DS3231Time[5];
+        //Second
+        DOORSTATUS__CLOSED_DATAPACKAGE[14] = DS3231Time[6];
         Serial1.write(DOORSTATUS__CLOSED_DATAPACKAGE, sizeof(DOORSTATUS__CLOSED_DATAPACKAGE));
-        Serial1.write(DS3231Time, sizeof(DS3231Time));
+
+        //Serial1.write(DS3231Time, sizeof(DS3231Time));
         DOORSTATUS--;
       }
     
@@ -1229,7 +1312,8 @@ void loop()
       {
         if(!EEPROM_RGB_BLINK_BOOL)
         {
-        sinelon();
+          //Idejon alapbol 
+          //sinelon();
         }
       }
     
@@ -1242,22 +1326,43 @@ void loop()
     {
       Serial.print("The Door is Opened at: ");
       TimeStamp();
+      DOORSTATUS_OPENED_DATAPACKAGE[9] = DS3231Time[0];
+      //Month
+      DOORSTATUS_OPENED_DATAPACKAGE[10] = DS3231Time[1];
+      //Day
+      DOORSTATUS_OPENED_DATAPACKAGE[11] = DS3231Time[2];
+      //Hour
+      DOORSTATUS_OPENED_DATAPACKAGE[12] = DS3231Time[4];
+      //Minute
+      DOORSTATUS_OPENED_DATAPACKAGE[13] = DS3231Time[5];
+      //Second
+      DOORSTATUS_OPENED_DATAPACKAGE[14] = DS3231Time[6];
       Serial1.write(DOORSTATUS_OPENED_DATAPACKAGE, sizeof(DOORSTATUS_OPENED_DATAPACKAGE));
-      Serial1.write(DS3231Time, sizeof(DS3231Time));
+      //Serial1.write(DS3231Time, sizeof(DS3231Time));
     }
   }
-  if(cardreading())
-    {
-      Serial.print("Carding at: ");
-      TimeStamp();
-      ACCOffline();
-      senddatatolora();
-      
-    }
+  //CardingImpulseCurrentMillis = millis();
+  if(Card_dat_down_No_Card)
+  {
+    
+    if(cardreading())
+      {
+        //myRfid.begin();
+        Serial.print("Carding at: ");
+        TimeStamp();
+        ACCOffline();
+        senddatatolora();
+        CardingTimeOut();
+      }
+  }else if(!Card_dat_down_No_Card)
+  {
+    myRfid.clearTags();
+  }
   RecieveDataFromGateLoRa();
   ButtonPushedOutSide();
   HC05JDY30FUNCTION();
   PowMon();
+  sinelon();
   FastLED.show();
   
   
@@ -1266,13 +1371,15 @@ void NFCINITIALIZE ()
 {
 
   nfc.begin();
-  nfc.setPassiveActivationRetries(0x01);
-
+  //nfc.setPassiveActivationRetries(0x01);
+  //nfc.setPassiveActivationRetries(0x00);
+  delay(10);
   uint32_t versiondata = nfc.getFirmwareVersion();
   if (! versiondata) {
     Serial.print("Didn't find PN53x board");
     while (1); // halt
   }
+  nfc.setPassiveActivationRetries(0x00);
   // Got ok data, print it out!
   Serial.print("Found chip PN5"); Serial.println((versiondata>>24) & 0xFF, HEX); 
   Serial.print("Firmware ver. "); Serial.print((versiondata>>16) & 0xFF, DEC); 
@@ -1282,14 +1389,16 @@ void NFCINITIALIZE ()
   boolean cardreading ()
 {
   //Serial.println("ITT2");
-  boolean ret = false;
+  ret = false;
   /*MOTIONPIR(PIRStateControl);
   ReturnMOTIONPIR = MOTIONPIR(PIRStateControl);
   if (ReturnMOTIONPIR == 1)
   {*/
   //*****************************************************************
   //Innentől működő RFID 125KHZ olvasás, átalakítása 4byte UID
-  tag = "";
+  //Ide is irtam
+  //tag = "";
+  tag.remove(0,sizeof(tag));
     tag = myRfid.getTag();   
       if (tag.toInt() < 0)
       {
@@ -1409,6 +1518,7 @@ void NFCINITIALIZE ()
                 Serial.println();*/
 
                 uidBytesCount = 0;
+                myRfid.clearTags();
                 ret = true;
               }
             }
@@ -1423,7 +1533,10 @@ void NFCINITIALIZE ()
           IntegerDataStringArray[u] = 0;
         }
         TagLength = 0;
-        tag = "";
+        //Ide is irtam
+        tag.remove(0, 10000);
+        //tag = "";
+        myRfid.clearTags();
         return ret;
       }
       //*****************************************************************************************
@@ -1431,11 +1544,14 @@ void NFCINITIALIZE ()
     // Wait for an ISO14443A type cards (Mifare, etc.).  When one is found
     // 'uid' will be populated with the UID, and uidLength will indicate
     // if the uid is 4 bytes (Mifare Classic) or 7 bytes (Mifare Ultralight)
-    nfc.SAMConfig();
+    
+    //Read card after every 2th seconds.
+    
+      //nfc.SAMConfig();
 
-    success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength);//, timeout = 50);
-    success = nfc.inListPassiveTarget();
-
+      success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength);//, timeout = 50);
+      //success = nfc.inListPassiveTarget();
+    
     //It's for NFC Carding detection
     uidDataPackage[0] = 255;
     uidDataPackage[1] = 255;
@@ -1459,7 +1575,10 @@ void NFCINITIALIZE ()
           }
         }
         Serial.print("The uid contains: "); Serial.print(uidBytesCount); Serial.println(" bytes.");*/
-
+        for(int i = 0; i < 10; i++)
+        {
+          WS2812BBlue();
+        }
         while (nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, &uid[0], &uidLength))
         {
           RerturnDoorTimeOutCardReading = DoorOpenedTimeOut(ReturnDoorTimeOut);
@@ -1558,13 +1677,30 @@ void NFCINITIALIZE ()
     ret = false;
     return ret;
   }*/
+  //wait x seconds
+  
   return ret;
 }
   void senddatatolora()
   {
     //Serial1.write(uid, uidLength);
     Serial.print("DataPackage is: ");
-    for(int hu = 0; hu < sizeof(uidDataPackage); hu++)
+    
+    TimeStamp();
+    delay(50);
+    //Year
+    uidDataPackage[9] = DS3231Time[0];
+    //Month
+    uidDataPackage[10] = DS3231Time[1];
+    //Day
+    uidDataPackage[11] = DS3231Time[2];
+    //Hour
+    uidDataPackage[12] = DS3231Time[4];
+    //Minute
+    uidDataPackage[13] = DS3231Time[5];
+    //Second
+    uidDataPackage[14] = DS3231Time[6];
+    for(unsigned int hu = 0; hu < sizeof(uidDataPackage); hu++)
     {
       Serial.print(uidDataPackage[hu], HEX);Serial.print(" ");
     }
@@ -1573,7 +1709,7 @@ void NFCINITIALIZE ()
     {
       Serial1.write(CardExtension, sizeof(CardExtension));
     }*/
-    Serial1.write(DS3231Time, sizeof(DS3231Time));
+    //Serial1.write(DS3231Time, sizeof(DS3231Time));
     /*Serial.print("Uid 1st byte: "); Serial.println(uid[0], HEX);
     Serial.print("Uid 2nd byte: "); Serial.println(uid[1], HEX);
     Serial.print("Uid 3th byte: "); Serial.println(uid[2], HEX);
@@ -1631,9 +1767,22 @@ void ButtonPushedOutSide ()
         LedBuzzerAccessGranted();
         Serial.println("Access Granted, door has just opened by Buttonat: ");
         TimeStamp();
-
+        delay(50);
+        //Year
+        ButtonDataPackage[9] = DS3231Time[0];
+        //Month
+        ButtonDataPackage[10] = DS3231Time[1];
+        //Day
+        ButtonDataPackage[11] = DS3231Time[2];
+        //Hour
+        ButtonDataPackage[12] = DS3231Time[4];
+        //Minute
+        ButtonDataPackage[13] = DS3231Time[5];
+        //Second
+        ButtonDataPackage[14] = DS3231Time[6];
         Serial1.write(ButtonDataPackage, sizeof(ButtonDataPackage));
-        Serial1.write(DS3231Time, sizeof(DS3231Time));
+
+        //Serial1.write(DS3231Time, sizeof(DS3231Time));
         Serial.println("Waiting for an ISO14443A Card ...");
         ButtonValToDoorControl = 0;
         Serial.print("Button datapck is: ");
@@ -1705,7 +1854,7 @@ void TimeNow()
 }
 void TimeStamp()
 {
-    for(int i = 0; i < sizeof(DS3231Time); i++)
+    for(unsigned int i = 0; i < sizeof(DS3231Time); i++)
     {
       DS3231Time[i] = 0;
     }
@@ -1825,8 +1974,21 @@ void ReadFromNextion()
         {
             BuzzNextionDenied();
             Serial.println("Denied");
+            TimeStamp();
+            InvaildSingInGateDP[9] = DS3231Time[0];
+            //Month
+            InvaildSingInGateDP[10] = DS3231Time[1];
+            //Day
+            InvaildSingInGateDP[11] = DS3231Time[2];
+            //Hour
+            InvaildSingInGateDP[12] = DS3231Time[4];
+            //Minute
+            InvaildSingInGateDP[13] = DS3231Time[5];
+            //Second
+            InvaildSingInGateDP[14] = DS3231Time[6];
             Serial1.write(InvaildSingInGateDP, sizeof(InvaildSingInGateDP));
-            Serial1.write(DS3231Time, sizeof(DS3231Time));
+
+            //Serial1.write(DS3231Time, sizeof(DS3231Time));
         //Page0 Touch Release
         }else if(
           (NextionBuffer[0] == 0x65 && NextionBuffer[1] == 0x0) &&
@@ -1917,10 +2079,57 @@ void ReadFromNextion()
         }else if(NextionBuffer[0] == 0x22 && NextionBuffer[1] == 0x43 && NextionBuffer[2] == 0x14)
         {
           Serial.println("Retry Door data download request from server");
-          TimeStamp();
+          Card_dat_down_No_Card = false;
+          EEPROM_RGB_BLINK_BOOL = true;
+          //TimeStamp();
+          RetryCardDataDownloadDataPackage[9] = DS3231Time[0];
+          //Month
+          RetryCardDataDownloadDataPackage[10] = DS3231Time[1];
+          //Day
+          RetryCardDataDownloadDataPackage[11] = DS3231Time[2];
+          //Hour
+          RetryCardDataDownloadDataPackage[12] = DS3231Time[4];
+          //Minute
+          RetryCardDataDownloadDataPackage[13] = DS3231Time[5];
+          //Second
+          RetryCardDataDownloadDataPackage[14] = DS3231Time[6];
           Serial1.write(RetryCardDataDownloadDataPackage, sizeof(RetryCardDataDownloadDataPackage));
-          Serial1.write(DS3231Time, sizeof(DS3231Time));
+          for (unsigned int i = 0; i < sizeof(RetryCardDataDownloadDataPackage); i++)
+          {
+            Serial.print(i);
+            Serial.print(". Retry data is: "); Serial.println(RetryCardDataDownloadDataPackage[i]);
+          }
+          //Serial1.write(DS3231Time, sizeof(DS3231Time));
           //Page 2 enter
+        }else if(NextionBuffer[0] == 0x22 && NextionBuffer[1] == 0x43 && NextionBuffer[2] == 0x15)
+        {
+          Serial.println("Retry Door Data Download Failed");
+          Card_dat_down_No_Card = true;
+          //TimeStamp();
+          RCDDFailed[9] = DS3231Time[0];
+          //Month
+          RCDDFailed[10] = DS3231Time[1];
+          //Day
+          RCDDFailed[11] = DS3231Time[2];
+          //Hour
+          RCDDFailed[12] = DS3231Time[4];
+          //Minute
+          RCDDFailed[13] = DS3231Time[5];
+          //Second
+          RCDDFailed[14] = DS3231Time[6];
+          Serial1.write(RCDDFailed, sizeof(RCDDFailed));
+          for (unsigned int i = 0; i < sizeof(RCDDFailed); i++)
+          {
+            Serial.print(i);
+            Serial.print(". Retry data is: "); Serial.println(RCDDFailed[i]);
+          }
+          //Serial1.write(DS3231Time, sizeof(DS3231Time));
+          //Page 2 enter
+          SendEEPROM_conf_to_Nextion();
+          EEPROM_RGB_BLINK_BOOL = false;
+          FastLED.clear();
+          sinelon();
+          //EEPROM_RGB_FINISH();
         }
         else if(NextionBuffer[0] == 103)
         {
@@ -1930,14 +2139,37 @@ void ReadFromNextion()
         }else if(NextionBuffer[0] == 0x10 && NextionBuffer[1] == 0x11 && NextionBuffer[2] == 0x22)
         {
           Serial.println("Master User Enter.");
+          MasterUserDP[9] = DS3231Time[0];
+          //Month
+          MasterUserDP[10] = DS3231Time[1];
+          //Day
+          MasterUserDP[11] = DS3231Time[2];
+          //Hour
+          MasterUserDP[12] = DS3231Time[4];
+          //Minute
+          MasterUserDP[13] = DS3231Time[5];
+          //Second
+          MasterUserDP[14] = DS3231Time[6];
           Serial1.write(MasterUserDP, sizeof(MasterUserDP));
-          Serial1.write(DS3231Time, sizeof(DS3231Time));
+
+          //Serial1.write(DS3231Time, sizeof(DS3231Time));
           //Master User Quit
         }else if(NextionBuffer[0] == 0xA0 && NextionBuffer[1] == 0xB0 && NextionBuffer[2] == 0xC0)
         {
           Serial.println("Master User Quit.");
+          MasterUserDPQuit[9] = DS3231Time[0];
+          //Month
+          MasterUserDPQuit[10] = DS3231Time[1];
+          //Day
+          MasterUserDPQuit[11] = DS3231Time[2];
+          //Hour
+          MasterUserDPQuit[12] = DS3231Time[4];
+          //Minute
+          MasterUserDPQuit[13] = DS3231Time[5];
+          //Second
+          MasterUserDPQuit[14] = DS3231Time[6];
           Serial1.write(MasterUserDPQuit, sizeof(MasterUserDPQuit));
-          Serial1.write(DS3231Time, sizeof(DS3231Time));
+          //Serial1.write(DS3231Time, sizeof(DS3231Time));
           NextionBuzzerQuit();
           //Page 4 enter
         }
@@ -2015,8 +2247,19 @@ void ReadFromNextion()
           Serial.println("Door Opened by security reason at: ");
           TimeStamp();
           //Serial1.write(NextionOutSideDataPackage, sizeof(NextionOutSideDataPackage));
+          SecurityDataPackage[9] = DS3231Time[0];
+          //Month
+          SecurityDataPackage[10] = DS3231Time[1];
+          //Day
+          SecurityDataPackage[11] = DS3231Time[2];
+          //Hour
+          SecurityDataPackage[12] = DS3231Time[4];
+          //Minute
+          SecurityDataPackage[13] = DS3231Time[5];
+          //Second
+          SecurityDataPackage[14] = DS3231Time[6];
           Serial1.write(SecurityDataPackage, sizeof(SecurityDataPackage));
-          Serial1.write(DS3231Time, sizeof(DS3231Time));
+          //Serial1.write(DS3231Time, sizeof(DS3231Time));
           Serial.println("Waiting for a Card...");
         //0% Led intensity
         }else if(NextionBuffer[0] == 3)
@@ -2193,6 +2436,7 @@ void ReadFromNextion()
           //Save REED TO EEPROM From Nextion
         }else if(NextionBuffer[0] == 0x30 &&NextionBuffer[1] == 0x63 && NextionBuffer[2] == 0x51)
         {
+          Serial.print("Hat most ide bejottem");
           boolean REEDBOOL = true;
           String REEDData;
           do
@@ -2211,6 +2455,7 @@ void ReadFromNextion()
           NextionWaitingOpenedDoor = (unsigned long)ReedDataInt;
           Serial.print("Int to Unsigned Long: "); Serial.println(NextionWaitingOpenedDoor);
           EEPROM.put(9, NextionWaitingOpenedDoor);
+          
           SendEEPROM_conf_to_Nextion();
           //NextionBufferClear 
         }else
@@ -2583,8 +2828,8 @@ void EEPROMDeleteAll()
 }
 void EEPROM_RGB(int redlight_value, int greenlight_value, int bluelight_value)
 {
-  analogWrite(REDLIGHT_PIN, redlight_value);
-  analogWrite(GRRENLIGHT_PIN, greenlight_value);
+  //analogWrite(REDLIGHT_PIN, redlight_value);
+  //analogWrite(GRRENLIGHT_PIN, greenlight_value);
   analogWrite(BLUELIGHT_PIN, bluelight_value);
 }
 void EEPROM_RGB_BLINK()
@@ -2735,6 +2980,7 @@ void ACCOffline()
 }
 void EEPROM_Vansiher()
 {
+  EEPROM_RGB_BLINK();
   eeprom_Card_Num_Cont = readFrom(chipAddress, eeprom_Card_Num);
   Serial.print("Number of stored cards in EEPROM: "); Serial.println(eeprom_Card_Num_Cont);
   Serial.print("Number of stored cards in Arduino EEPROM: "); Serial.println(EEPROM.get(8, Ardueeprom_card_num_cont));
@@ -2747,6 +2993,7 @@ void EEPROM_Vansiher()
     writeTo(chipAddress, i, 0);
     Serial.print(i); Serial.print(". "); Serial.println(readFrom(chipAddress, i));
     i++;
+    EEPROM_RGB_BLINK();
   }
   EEPROM.put(8, 0);
   writeTo(chipAddress, eeprom_Card_Num, 0);
@@ -2807,8 +3054,8 @@ void InsideEEPROM_Conf_for_Nextion()
 }
 void SendEEPROM_conf_to_Nextion()
 {
-  byte led_conf_val, pir_conf_val, reed_conf_val, buzzer_conf_val, led_conf_intesity_val, next_conf_dispblk_val, num_of_cards_eeprom_val = 0;
-  unsigned long Ardu_EEPROM_Unsigned_Long_Reed_Time_Delay = 0;
+  byte led_conf_val, pir_conf_val, reed_conf_val, buzzer_conf_val, led_conf_intesity_val, next_conf_dispblk_val, num_of_cards_eeprom_val;
+  
   led_conf_val = EEPROM.read(1);
   pir_conf_val = EEPROM.read(0);
   reed_conf_val = EEPROM.read(2);
@@ -2820,7 +3067,7 @@ void SendEEPROM_conf_to_Nextion()
   unsigned int Ardu_EEPROM_Unsigned_Int;
   EEPROM.get(8, Ardu_EEPROM_Unsigned_Int);
   EEPROM.get(9, Ardu_EEPROM_Unsigned_Long_Reed_Time_Delay);
-
+  
   
   
   //Send Setup EEPROM data to Nextion
@@ -2868,7 +3115,7 @@ void SendEEPROM_conf_to_Nextion()
   
   //Send Number of Cards to Nextion
   //Using bit shifting because of unsigned long int variable
-  unsigned char eeprom_Card_Num_Cont_byteArray[4];
+  //unsigned char eeprom_Card_Num_Cont_byteArray[4];
   // convert from an unsigned long int to a 4-byte array
   /*eeprom_Card_Num_Cont_byteArray[0] = (int)((eeprom_Card_Num_Cont >> 24) & 0xFF) ;
   eeprom_Card_Num_Cont_byteArray[1] = (int)((eeprom_Card_Num_Cont >> 16) & 0xFF) ;
@@ -2881,7 +3128,7 @@ void SendEEPROM_conf_to_Nextion()
   Serial3.print("\xFF\xFF\xFF");
   //Serial.print("Number of cards sent to Nextion: "); Serial.println(eeprom_Card_Num_Cont_byteArray[3]);
   Serial.print("Number of cards sent to Nextion: "); Serial.println(ConvEpprom_Card_Num);
-  Serial.print("Number of cards in Arduino EEPROM is: "); Serial.println(EEPROM.get(8, Ardu_EEPROM_Unsigned_Int));
+  //Serial.print("Number of cards in Arduino EEPROM is: "); Serial.println(EEPROM.get(8, Ardu_EEPROM_Unsigned_Int));
 
   Serial.print("Current Reed Time delay in Arduino EEPROM is: "); Serial.println(Ardu_EEPROM_Unsigned_Long_Reed_Time_Delay);
   Serial3.print("page12.n8.val=");
@@ -2946,26 +3193,25 @@ void PowMon()
         Serial3.print(NetworkValHHC);
         Serial3.print("\xFF\xFF\xFF");
         //Send Data To LoRa
-        //TimeStamp();
-        //Year
-        HHCDPOff[3] = DS3231Time[0];
+        TimeStamp();
+        HHCDPOff[9] = DS3231Time[0];
         //Month
-        HHCDPOff[4] = DS3231Time[1];
+        HHCDPOff[10] = DS3231Time[1];
         //Day
-        HHCDPOff[5] = DS3231Time[2];
+        HHCDPOff[11] = DS3231Time[2];
         //Hour
-        HHCDPOff[6] = DS3231Time[4];
+        HHCDPOff[12] = DS3231Time[4];
         //Minute
-        HHCDPOff[7] = DS3231Time[5];
+        HHCDPOff[13] = DS3231Time[5];
         //Second
-        HHCDPOff[8] = DS3231Time[6];
+        HHCDPOff[14] = DS3231Time[6];
         Serial1.write(HHCDPOff, sizeof(HHCDPOff));
-        Serial1.write(DS3231Time, sizeof(DS3231Time));
+        //Serial1.write(DS3231Time, sizeof(DS3231Time));
         for (unsigned int i = 0; i < sizeof(HHCDPOff); i++)
         {
           Serial.print(i); Serial.print(". "); Serial.println(HHCDPOff[i]);
         }
-
+      delay(10);
     }else if ((CurrentNetworkValHHC != NetworkValHHC) && NetworkValHHC == 0)
     {
         Serial.println("Network is On");
@@ -2973,27 +3219,26 @@ void PowMon()
         Serial3.print(NetworkValHHC);
         Serial3.print("\xFF\xFF\xFF");
         //Send Data To LoRa
-        //TimeStamp();
-        //Year
-        HHCDPOn[3] = DS3231Time[0];
+        TimeStamp();
+        HHCDPOn[9] = DS3231Time[0];
         //Month
-        HHCDPOn[4] = DS3231Time[1];
+        HHCDPOn[10] = DS3231Time[1];
         //Day
-        HHCDPOn[5] = DS3231Time[2];
+        HHCDPOn[11] = DS3231Time[2];
         //Hour
-        HHCDPOn[6] = DS3231Time[4];
+        HHCDPOn[12] = DS3231Time[4];
         //Minute
-        HHCDPOn[7] = DS3231Time[5];
+        HHCDPOn[13] = DS3231Time[5];
         //Second
-        HHCDPOn[8] = DS3231Time[6];
+        HHCDPOn[14] = DS3231Time[6];
         Serial1.write(HHCDPOn, sizeof(HHCDPOn));
-        Serial1.write(DS3231Time, sizeof(DS3231Time));
+        //Serial1.write(DS3231Time, sizeof(DS3231Time));
         for (unsigned int i = 0; i < sizeof(HHCDPOn); i++)
         {
           Serial.print(i); Serial.print(". "); Serial.println(HHCDPOn[i]);
         }
     }
-    
+      delay(10);
     if(AHCVAL == LOW)
     {
         NetworkValAHC = 0;
@@ -3009,21 +3254,22 @@ void PowMon()
         Serial3.print(NetworkValAHC);
         Serial3.print("\xFF\xFF\xFF");
         //Send Data To LoRa
-        //TimeStamp();
+        TimeStamp();
         //Year
-        AHCDPOff[3] = DS3231Time[0];
+        AHCDPOff[9] = DS3231Time[0];
         //Month
-        AHCDPOff[4] = DS3231Time[1];
+        AHCDPOff[10] = DS3231Time[1];
         //Day
-        AHCDPOff[5] = DS3231Time[2];
+        AHCDPOff[11] = DS3231Time[2];
         //Hour
-        AHCDPOff[6] = DS3231Time[4];
+        AHCDPOff[12] = DS3231Time[4];
         //Minute
-        AHCDPOff[7] = DS3231Time[5];
+        AHCDPOff[13] = DS3231Time[5];
         //Second
-        AHCDPOff[8] = DS3231Time[6];
+        AHCDPOff[14] = DS3231Time[6];
         Serial1.write(AHCDPOff, sizeof(AHCDPOff));
-        Serial1.write(DS3231Time, sizeof(DS3231Time));        
+        //Serial1.write(DS3231Time, sizeof(DS3231Time));
+        delay(10);        
     }else if ((CurrentNetworkValAHC != NetworkValAHC) && NetworkValAHC == 0)
     {
         Serial.println("Kimeneti egyenfeszultseg Rendben");
@@ -3031,21 +3277,22 @@ void PowMon()
         Serial3.print(NetworkValAHC);
         Serial3.print("\xFF\xFF\xFF");
         //Send Data To LoRa
-        //TimeStamp();
+        TimeStamp();
         //Year
-        AHCDPOn[3] = DS3231Time[0];
+        AHCDPOn[9] = DS3231Time[0];
         //Month
-        AHCDPOn[4] = DS3231Time[1];
+        AHCDPOn[10] = DS3231Time[1];
         //Day
-        AHCDPOn[5] = DS3231Time[2];
+        AHCDPOn[11] = DS3231Time[2];
         //Hour
-        AHCDPOn[6] = DS3231Time[4];
+        AHCDPOn[12] = DS3231Time[4];
         //Minute
-        AHCDPOn[7] = DS3231Time[5];
+        AHCDPOn[13] = DS3231Time[5];
         //Second
-        AHCDPOn[8] = DS3231Time[6];
+        AHCDPOn[14] = DS3231Time[6];
         Serial1.write(AHCDPOn, sizeof(AHCDPOn));
-        Serial1.write(DS3231Time, sizeof(DS3231Time));
+        //Serial1.write(DS3231Time, sizeof(DS3231Time));
+        delay(10);
     }  
 }
 void PowMonAtStart()
@@ -3075,8 +3322,24 @@ void PowMonAtStart()
         Serial3.print("\xFF\xFF\xFF");
         //Send Data To LoRa
         TimeStamp();
+        HHCDPOff[9] = DS3231Time[0];
+        //Month
+        HHCDPOff[10] = DS3231Time[1];
+        //Day
+        HHCDPOff[11] = DS3231Time[2];
+        //Hour
+        HHCDPOff[12] = DS3231Time[4];
+        //Minute
+        HHCDPOff[13] = DS3231Time[5];
+        //Second
+        HHCDPOff[14] = DS3231Time[6];
         Serial1.write(HHCDPOff, sizeof(HHCDPOff));
-        Serial1.write(DS3231Time, sizeof(DS3231Time));
+        for(unsigned int i = 0; i < sizeof(HHCDPOff); i++)
+        {
+          Serial.print(i); Serial.print(". HHCDPOFF data is: "); Serial.println(HHCDPOff[i]);
+        }
+        delay(10);
+        //Serial1.write(DS3231Time, sizeof(DS3231Time));
 
     }else if (NetworkValHHC == 0)
     {
@@ -3086,8 +3349,24 @@ void PowMonAtStart()
         Serial3.print("\xFF\xFF\xFF");
         //Send Data To LoRa
         TimeStamp();
+        HHCDPOn[9] = DS3231Time[0];
+        //Month
+        HHCDPOn[10] = DS3231Time[1];
+        //Day
+        HHCDPOn[11] = DS3231Time[2];
+        //Hour
+        HHCDPOn[12] = DS3231Time[4];
+        //Minute
+        HHCDPOn[13] = DS3231Time[5];
+        //Second
+        HHCDPOn[14] = DS3231Time[6];
         Serial1.write(HHCDPOn, sizeof(HHCDPOn));
-        Serial1.write(DS3231Time, sizeof(DS3231Time));
+        for(unsigned int i = 0; i < sizeof(HHCDPOn); i++)
+        {
+          Serial.print(i); Serial.print(". HHCDPOn data is: "); Serial.println(HHCDPOn[i]);
+        }
+        //Serial1.write(DS3231Time, sizeof(DS3231Time));
+        delay(10);
     }
     
     if(AHCVAL == LOW)
@@ -3106,8 +3385,25 @@ void PowMonAtStart()
         Serial3.print("\xFF\xFF\xFF");
         //Send Data To LoRa
         TimeStamp();
+        //Year
+        AHCDPOff[9] = DS3231Time[0];
+        //Month
+        AHCDPOff[10] = DS3231Time[1];
+        //Day
+        AHCDPOff[11] = DS3231Time[2];
+        //Hour
+        AHCDPOff[12] = DS3231Time[4];
+        //Minute
+        AHCDPOff[13] = DS3231Time[5];
+        //Second
+        AHCDPOff[14] = DS3231Time[6];
         Serial1.write(AHCDPOff, sizeof(AHCDPOff));
-        Serial1.write(DS3231Time, sizeof(DS3231Time));        
+        for(unsigned int i = 0; i < sizeof(AHCDPOff); i++)
+        {
+          Serial.print(i); Serial.print(". AHCDPOff data is: "); Serial.println(AHCDPOff[i]);
+        }
+        //Serial1.write(DS3231Time, sizeof(DS3231Time));
+        delay(10);        
     }else if (NetworkValAHC == 0)
     {
         Serial.println("Kimeneti egyenfeszultseg Rendben");
@@ -3116,7 +3412,81 @@ void PowMonAtStart()
         Serial3.print("\xFF\xFF\xFF");
         //Send Data To LoRa
         TimeStamp();
+        //Year
+        AHCDPOn[9] = DS3231Time[0];
+        //Month
+        AHCDPOn[10] = DS3231Time[1];
+        //Day
+        AHCDPOn[11] = DS3231Time[2];
+        //Hour
+        AHCDPOn[12] = DS3231Time[4];
+        //Minute
+        AHCDPOn[13] = DS3231Time[5];
+        //Second
+        AHCDPOn[14] = DS3231Time[6];
         Serial1.write(AHCDPOn, sizeof(AHCDPOn));
-        Serial1.write(DS3231Time, sizeof(DS3231Time));
+        for(unsigned int i = 0; i < sizeof(AHCDPOn); i++)
+        {
+          Serial.print(i); Serial.print(". AHCDPOn data is: "); Serial.println(AHCDPOn[i]);
+        }
+        //Serial1.write(DS3231Time, sizeof(DS3231Time));
+        delay(10);
     }  
+}
+void SendStartToDB()
+{
+  TimeStamp();
+  //Year
+  StartDP[9] = DS3231Time[0];
+  //Month
+  StartDP[10] = DS3231Time[1];
+  //Day
+  StartDP[11] = DS3231Time[2];
+  //Hour
+  StartDP[12] = DS3231Time[4];
+  //Minute
+  StartDP[13] = DS3231Time[5];
+  //Second
+  StartDP[14] = DS3231Time[6];
+  Serial.println("Sent Gate Restart Status");
+  Serial1.write(StartDP, sizeof(StartDP));
+}
+void CardingTimeOut()
+{
+  myRfid.clearTags();
+  //Card_dat_down_No_Card = false;
+  while((CardingImpulseCurrentMillis < CardingImpulseInterval))
+  {
+    //Serial.println(CardingImpulseCurrentMillis);
+    wdt_reset();
+        
+    CardingImpulseCurrentMillis++;
+    sinelon();
+    //delay(85);
+    FastLED.show();
+  }
+  CardingImpulseCurrentMillis = 0;
+  Card_dat_down_No_Card = true;
+}
+void RCDDSucc()
+{
+  Serial.println("Retry Card Data Download Was Success!");
+  TimeStamp();
+  //Year
+  RCDDSuccessDP[9] = DS3231Time[0];
+  //Month
+  RCDDSuccessDP[10] = DS3231Time[1];
+  //Day
+  RCDDSuccessDP[11] = DS3231Time[2];
+  //Hour
+  RCDDSuccessDP[12] = DS3231Time[4];
+  //Minute
+  RCDDSuccessDP[13] = DS3231Time[5];
+  //Second
+  RCDDSuccessDP[14] = DS3231Time[6];
+  Serial1.write(RCDDSuccessDP, sizeof(RCDDSuccessDP));
+  for (unsigned int i = 0; i < sizeof(HHCDPOff); i++)
+  {
+    Serial.print(i); Serial.print(". "); Serial.println(HC05SmartPhoneDp[i]);
+  }
 }
