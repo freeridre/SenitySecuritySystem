@@ -13,6 +13,7 @@
 #include <Time.h>
 /////////////////////
 #include "arduino.h"
+#include <avr/wdt.h>
 #include "Wire.h"
 #include "SPI.h"
 #include "EEPROM.h"
@@ -77,12 +78,14 @@ const uint8_t RetryCardDataDownloadCallBackPackage[3] = {113, 113, 239};
 const uint8_t RetryCardDataDownloadStartedBackPackage[3] = {113, 113, 240};
 const uint8_t EmptyDBtoGateController[3] = {113, 113, 241};
 uint8_t EndOfCardDataFromDBInt[3] = {63, 63, 64};
-int val = 0;
+uint8_t val = 0;
 uint8_t CardNUmToLoRa[5] = {42, 42, 45, val, 42};
 byte Status;
 //const int eeAddress;
 //User Serial3 Input
-int input_a = 0;
+//if input_a == '5' it automatically enters logging mode
+int input_a = '5';
+boolean logging = true;
 //EEPROM
 unsigned int address = 0;
 byte value;
@@ -124,7 +127,7 @@ boolean CardLearningName = false;
 boolean CardLearningProcess = false;
 String MySQLCardDataToDB;
 String MySQLSeparator = ",";
-String MySQLCardNumbersReturn = "";
+String MySQLCardNumbersReturn;
 String CardData = "";
 String MySQLCardDataToDBID = "";
 String MySQLCardDataUpdate = "";
@@ -152,7 +155,8 @@ String MySQLAccessControlIdentifier = "3";
 //byte Status;
 boolean ReadedCard = false;
 void accesscontrolmysql();
-char uidchar[6] = "";
+//Itt is csereltem
+char uidchar[6] = "\0";
 String uidString = "";
 String uidStringend = "*";
 String UidStringToMysql = "";
@@ -453,7 +457,8 @@ void AccessControl()
 {
     do
     {
-    Serial3.println("Attempt to open the door at: ");
+      
+      Serial3.println("Attempt to open the door at: ");
       
         //Serial3.print(byteFromESP32[o], DEC);
         //Year
@@ -628,6 +633,8 @@ void DataFromNTP()
 }
 void readfromoutsideLoRa()
 {
+  logging = false;
+  wdt_reset();
   NextionCurrentTime = millis();
   UInput = 0;
   //DataFromNTP();
@@ -635,9 +642,10 @@ void readfromoutsideLoRa()
     input_a = Serial3.read();
     if (input_a == '6')
     {
+      logging = false;
       main_menu = 1;
       loop();
-      return;
+      //return;
     }
     unsigned int i = 0;
     SendTimeToNextion();
@@ -646,6 +654,7 @@ void readfromoutsideLoRa()
 
     while(Serial1.available() > 0)
     {
+      
       NextionCurrentTime = millis();
       //Orange Led shows Serial3 communication progress
       SendTimeToNextion();
@@ -655,12 +664,13 @@ void readfromoutsideLoRa()
       Serial3.print("First Data Income: ");
       while(Serial1.available() > 0)
       {
-      byteFromESP32[i] = Serial1.read();
-      
-      Serial3.print("0x"); Serial3.print(byteFromESP32[i], HEX); Serial3.print(" ");
-      
-      i++;
-      //i += 1;
+        
+        byteFromESP32[i] = Serial1.read();
+        
+        Serial3.print("0x"); Serial3.print(byteFromESP32[i], HEX); Serial3.print(" ");
+        
+        i++;
+        //i += 1;
       }
       /*if(byteFromESP32[0] == 255 && byteFromESP32[1] == 255 && byteFromESP32[16] == 255 && byteFromESP32[17] == 255)
       {
@@ -720,6 +730,7 @@ void readfromoutsideLoRa()
         //Release Data
         for (unsigned int z = 0; z < sizeof(byteFromESP32); z++)
         {
+          
           byteFromESP32[z] = 0;
         }
         Serial3.println("Waiting for incoming Data");
@@ -779,6 +790,7 @@ void readfromoutsideLoRa()
         //Release Data
         for (unsigned int z = 0; z < sizeof(byteFromESP32); z++)
         {
+          
           byteFromESP32[z] = 0;
         }
         Serial3.println("Waiting for incoming Data");
@@ -836,6 +848,7 @@ void readfromoutsideLoRa()
         //Release Data
         for (unsigned int z = 0; z < sizeof(byteFromESP32); z++)
         {
+          
           byteFromESP32[z] = 0;
           //Serial3.print(byteFromESP32[z]);
         }
@@ -897,13 +910,14 @@ void readfromoutsideLoRa()
         //Release Data
         for (unsigned int z = 0; z < sizeof(byteFromESP32); z++)
         {
+          
           byteFromESP32[z] = 0;
           //Serial3.print(byteFromESP32[z]);
         }
         Serial3.println();
         Serial3.println("Waiting for incoming Data");
       }
-      else if (byteFromESP32[0] == 111 && byteFromESP32[1] == 111 && byteFromESP32[2] == 99)
+      else if (byteFromESP32[0] == 111 && byteFromESP32[1] == 111 && byteFromESP32[2] == 33)
       {
         Serial3.print('\n');
         Serial3.print("Bytes received: ");
@@ -949,14 +963,188 @@ void readfromoutsideLoRa()
         }
         Serial3.print(byteFromESP32[9], DEC);Serial3.println();
         //////
+        Serial3.println();
+        SendActionToMysql();
+        Serial3.println("Action Sent to DB.");
+        Serial3.println("Waiting for incoming Data");
         //Release Data
         for (unsigned int z = 0; z < sizeof(byteFromESP32); z++)
         {
+          
           byteFromESP32[z] = 0;
           //Serial3.print(byteFromESP32[z]);
         }
         Serial3.println();
         Serial3.println("Waiting for incoming Data");
+      }else if(byteFromESP32[0] == 111 && byteFromESP32[1] == 111 && byteFromESP32[2] == 34)
+      {
+        Serial3.print('\n');
+        Serial3.print("Bytes received: ");
+        Serial3.print(i, DEC);
+        Serial3.print('\n');
+        Serial3.println("Retry Card Data Download Was Success at: ");
+        ///////
+        //Year
+        if (byteFromESP32[3] < 2100)
+        {
+          Serial3.print(20, DEC);Serial3.print(byteFromESP32[3], DEC);Serial3.print(".");
+        }
+        //month
+        if (byteFromESP32[4] < 10)
+        {
+          Serial3.print(0, DEC);
+        }
+        Serial3.print(byteFromESP32[4], DEC);Serial3.print(".");
+        //day
+        if (byteFromESP32[5] < 10)
+        {
+          Serial3.print(0, DEC);
+        }
+        Serial3.print(byteFromESP32[5], DEC);Serial3.print(".");
+        //dayofweek
+          Serial3.print(" (");Serial3.print(byteFromESP32[6], DEC);Serial3.print(") ");
+          //hour
+        if (byteFromESP32[7] < 10)
+        {
+          Serial3.print(0, DEC);
+        }
+        Serial3.print(byteFromESP32[7], DEC);Serial3.print(":");
+          //minutes
+        if (byteFromESP32[8] < 10)
+        {
+          Serial3.print(0, DEC);
+        }
+        Serial3.print(byteFromESP32[8], DEC);Serial3.print(":");
+        //seconds
+        if (byteFromESP32[9] < 10)
+        {
+          Serial3.print(0, DEC);
+        }
+        Serial3.print(byteFromESP32[9], DEC);Serial3.println();
+        //////
+        Serial3.println();
+        SendActionToMysql();
+        Serial3.println("Action Sent to DB.");
+        Serial3.println("Waiting for incoming Data");
+        //Release Data
+        for (unsigned int z = 0; z < sizeof(byteFromESP32); z++)
+        {
+          
+          byteFromESP32[z] = 0;
+          //Serial3.print(byteFromESP32[z]);
+        }
+        //Serial3.println(i);
+
+      }else if(byteFromESP32[0] == 111 && byteFromESP32[1] == 111 && byteFromESP32[2] == 35)
+      {
+        Serial3.print('\n');
+        Serial3.print("Bytes received: ");
+        Serial3.print(i, DEC);
+        Serial3.print('\n');
+        Serial3.println("Gate Reseted at: ");
+        ///////
+        //Year
+        if (byteFromESP32[3] < 2100)
+        {
+          Serial3.print(20, DEC);Serial3.print(byteFromESP32[3], DEC);Serial3.print(".");
+        }
+        //month
+        if (byteFromESP32[4] < 10)
+        {
+          Serial3.print(0, DEC);
+        }
+        Serial3.print(byteFromESP32[4], DEC);Serial3.print(".");
+        //day
+        if (byteFromESP32[5] < 10)
+        {
+          Serial3.print(0, DEC);
+        }
+        Serial3.print(byteFromESP32[5], DEC);Serial3.print(".");
+        //dayofweek
+          Serial3.print(" (");Serial3.print(byteFromESP32[6], DEC);Serial3.print(") ");
+          //hour
+        if (byteFromESP32[7] < 10)
+        {
+          Serial3.print(0, DEC);
+        }
+        Serial3.print(byteFromESP32[7], DEC);Serial3.print(":");
+          //minutes
+        if (byteFromESP32[8] < 10)
+        {
+          Serial3.print(0, DEC);
+        }
+        Serial3.print(byteFromESP32[8], DEC);Serial3.print(":");
+        //seconds
+        if (byteFromESP32[9] < 10)
+        {
+          Serial3.print(0, DEC);
+        }
+        Serial3.print(byteFromESP32[9], DEC);Serial3.println();
+        //////
+        Serial3.println();
+        SendActionToMysql();
+        Serial3.println("Action Sent to DB.");
+        Serial3.println("Waiting for incoming Data");
+        //Release Data
+        for (unsigned int z = 0; z < sizeof(byteFromESP32); z++)
+        {
+          
+          byteFromESP32[z] = 0;
+          //Serial3.print(byteFromESP32[z]);
+        }
+        //Serial3.println(i);
+
+      }
+      else if(byteFromESP32[0] == 111 && byteFromESP32[1] == 111 && byteFromESP32[2] == 23)
+      {
+        Serial3.print("Master User Signed in at Gate at: ");
+        //Year
+        if (byteFromESP32[9] < 2100)
+        {
+          Serial3.print(20, DEC);Serial3.print(byteFromESP32[9], DEC);Serial3.print(".");
+        }
+        //month
+        if (byteFromESP32[10] < 10)
+        {
+          Serial3.print(0, DEC);
+        }
+        Serial3.print(byteFromESP32[10], DEC);Serial3.print(".");
+        //day
+        if (byteFromESP32[11] < 10)
+        {
+          Serial3.print(0, DEC);
+        }
+        Serial3.print(byteFromESP32[11], DEC);Serial3.print(".");
+        //dayofweek
+          Serial3.print(" (");Serial3.print(byteFromESP32[6], DEC);Serial3.print(") ");
+          //hour
+        if (byteFromESP32[13] < 10)
+        {
+          Serial3.print(0, DEC);
+        }
+        Serial3.print(byteFromESP32[13], DEC);Serial3.print(":");
+          //minutes
+        if (byteFromESP32[14] < 10)
+        {
+          Serial3.print(0, DEC);
+        }
+        Serial3.print(byteFromESP32[14], DEC);Serial3.print(":");
+        //seconds
+        if (byteFromESP32[15] < 10)
+        {
+          Serial3.print(0, DEC);
+        }
+        Serial3.print(byteFromESP32[15], DEC);Serial3.println();
+        //////
+        
+        //////
+        SendActionToMysql();
+        for (unsigned int z = 0; z < sizeof(byteFromESP32); z++)
+        {
+          
+          byteFromESP32[z] = 0;
+          //Serial3.print(byteFromESP32[z]);
+        }
       }else if(byteFromESP32[0] == 111 && byteFromESP32[1] == 111 && byteFromESP32[2] == 20)
       {
         //i = 1;
@@ -1011,6 +1199,7 @@ void readfromoutsideLoRa()
         //Release Data
         for (unsigned int z = 0; z < sizeof(byteFromESP32); z++)
         {
+          
           byteFromESP32[z] = 0;
           //Serial3.print(byteFromESP32[z]);
         }
@@ -1062,6 +1251,7 @@ void readfromoutsideLoRa()
         SendActionToMysql();
         for (unsigned int z = 0; z < sizeof(byteFromESP32); z++)
         {
+          
           byteFromESP32[z] = 0;
           //Serial3.print(byteFromESP32[z]);
         }
@@ -1112,6 +1302,7 @@ void readfromoutsideLoRa()
         SendActionToMysql();
         for (unsigned int z = 0; z < sizeof(byteFromESP32); z++)
         {
+          
           byteFromESP32[z] = 0;
           //Serial3.print(byteFromESP32[z]);
         }
@@ -1122,6 +1313,7 @@ void readfromoutsideLoRa()
     input_a = Serial3.read();
     if (input_a == '6')
     {
+      
       main_menu = 1;
       loop();
       return;
@@ -1179,6 +1371,8 @@ void readfromoutsideLoRa()
   //return;
 }
 void setup() {
+  wdt_disable();
+  wdt_enable(WDTO_8S);
   // put your setup code here, to run once:
   //Serial30 start
   //Pi UART communication
@@ -1228,10 +1422,12 @@ void setup() {
 }
 void loop()
 {
+  wdt_reset();
   CardUpdateTimePrev = millis();
   PrevUpdateCancel = millis();
   while(true)
   {
+    wdt_reset();
     SendTimeToNextion();
     NextionCurrentTime = millis();
     if (main_menu == 1)
@@ -1274,8 +1470,9 @@ void loop()
       {
         EEPROMREADOUTALL();
       }
-      else if(input_a == '5')
+      else if(input_a == '5' || logging)
       {
+        logging = true;
         Serial3.println("Waiting for incoming data...");
         readfromoutsideLoRa();
       }
@@ -1401,7 +1598,10 @@ do
       /////////////////////////////
       //////////////////////////////
       //tag.toInt() = 0;
-      tag = "";
+
+      //Itt csereltem
+      //tag = "";
+      tag.remove(0, tag.length());
       
       /////////////////////////////
       ////////////////////////////////
@@ -1469,7 +1669,9 @@ do
                 TagLength = 0;
                 ID = 0; address = 0;
                 input_a = 0;
-                tag = "";
+                //Itt csereltem
+                //tag = "";
+                tag.remove(0, tag.length());
                 uidLength = 0;
                 CardLearningV2();
                 return;
@@ -1525,7 +1727,9 @@ do
         CardLearningV2();
       }
     RFIDControlByte = 0;
-    tag = "";
+    //Itt csereltem
+    //tag = "";
+    tag.remove(0, tag.length());
     //Serial3.println(TagLength);
     //Serial3.println(uidLength);
     
@@ -1588,6 +1792,7 @@ void CardDeleting()
     CardDeleting();
     return;
   }*/
+  
   Serial3.println("Card deleting.");
   Serial.println("148AD219,");
   String Card_Delete_ID = "";
@@ -1598,8 +1803,10 @@ void CardDeleting()
   int Act_Card_data = 0;
   while(true)
   {
+    
     while(Serial.available() > 0)
     {
+      
       Card_Delete_ID = Serial.readString();
       Serial3.println(Card_Delete_ID);
       Card_Data_Income = Card_Delete_ID.substring(0, 12);
@@ -1634,12 +1841,17 @@ void CardLearningV3()
 {
   SendTimeToNextion();
   NextionCurrentTime = millis();
-  MySQLCardDataToDB = "";
+  //Itt csereltem
+  //MySQLCardDataToDB = "";
+  MySQLCardDataToDB.remove(0, MySQLCardDataToDB.length());
   Serial3.println("Welcome to CardLearning");
   Serial3.println("Please Enter FirstName!");
-  LastName = "";
+  //Itt csereltem
+  //LastName = "";
+  LastName.remove(0, LastName.length());
   while(LastName == "")
   {
+    wdt_reset();
     SendTimeToNextion();
     NextionCurrentTime = millis();
     //Serial3.println("OHOHO");
@@ -1652,6 +1864,7 @@ void CardLearningV3()
       Serial3.println("Please Enter LastName!");
       while(LastName == "")
       {
+        wdt_reset();
         SendTimeToNextion();
         NextionCurrentTime = millis();
         LastName = Serial3.readString();
@@ -1663,6 +1876,7 @@ void CardLearningV3()
           Serial3.println("(y) - is yes, (n) is no");
           while(LastNameBool)
           {
+            wdt_reset();
             SendTimeToNextion();
             NextionCurrentTime = millis();
             input_a = Serial3.read();
@@ -1677,11 +1891,14 @@ void CardLearningV3()
                 //FirstName = "";
                 FirstNameBool = false;
                 //LastName = "";
+                //Ez itterdekes...
                 LastNameBool = "";
+                
                 if(CardLearningName)
                 {
                   while(!CardLearningProcess)
                   {
+                    wdt_reset();
                     SendTimeToNextion();
                     NextionCurrentTime = millis();
                     GetCardDataFromMySQLDB();
@@ -1692,9 +1909,13 @@ void CardLearningV3()
               }else if((input_a == 'n') || (input_a == 'N'))
               {
                 Serial3.print("Name: "); Serial3.print(FirstName); Serial3.print(" "); Serial3.print(LastName); Serial3.println(" Deleted.");
-                FirstName = "";
+                //Itt csereltem
+                //FirstName = "";
+                FirstName.remove(0, FirstName.length());
                 FirstNameBool = false;
-                LastName = "";
+                //Itt csereltem
+                //LastName = "";
+                LastName.remove(0, LastName.length());
                 LastNameBool = "";
                 CardLearningV3();
               }           
@@ -1714,11 +1935,14 @@ void GetCardDataFromMySQLDB()
   Serial.println("123,");
   while(true)
   {
+    
     SendTimeToNextion();
     NextionCurrentTime = millis();
     //Serial.print("Counter is: "); Serial.println(Counter);
     MySQLConnectionCurrTimeOut = millis();
-    MySQLCardNumbersReturn = Serial.readString();
+    //Ez az eredeti
+    //MySQLCardNumbersReturn = Serial.readString();
+    MySQLCardNumbersReturn = Serial.readStringUntil('\n');
     //Serial3.println(MySQLCardNumbersReturn);
     if(MySQLConnectionCurrTimeOut > MySQLConnectionPrevTimeOut + MySQLConnectionTimeOutInterval)
     {
@@ -1729,13 +1953,18 @@ void GetCardDataFromMySQLDB()
       MySQLConnectionPrevTimeOut = MySQLConnectionCurrTimeOut;
       //Serial.print("Released CurrentPrevTimeout Counter is: "); Serial.println(MySQLConnectionPrevTimeOut);
       Serial3.println("Failed to Connect to DB.");
-      FirstName = "";
+      //Itt csereltem
+      //FirstName = "";
+      FirstName.remove(0, FirstName.length());
       FirstNameBool = false;
-      LastName = "";
+      //Itt csereltem
+      //LastName = "";
+      LastName.remove(0, LastName.length());
       LastNameBool = "";
 
       //CardLearningV3();
       delay(3000);
+      
       main_menu = 1;
       loop();
       //return;
@@ -1787,10 +2016,12 @@ void GetCardDataFromMySQLDB()
 }
 void CardLearningMaster()
 {
+  wdt_reset();
   SendTimeToNextion();
   NextionCurrentTime = millis();
   for (unsigned int i = 0; i < sizeof(uid); i++)
       {
+        
         uid[i] = 0;
       }
   uidLength = 0;
@@ -1799,6 +2030,7 @@ void CardLearningMaster()
   Serial3.println("ittvagyok1");
   while(uid[0] == 0)
   {
+    wdt_reset();
     SendTimeToNextion();
     NextionCurrentTime = millis();
     //delay(500);
@@ -1828,10 +2060,12 @@ void CardLearningMaster()
         //Serial.print("Current TagLength: "); Serial.println(TagLength);
         while (TagLength < 16)
         {
+          wdt_reset();
           SendTimeToNextion();
           NextionCurrentTime = millis();
           for (iRFID = 0; iRFID < TagLength; iRFID++)
           {
+            
             DataString = tag.substring(c, b);
             IntegerDataStringArray[iRFID] = DataString.toInt();
             b++;
@@ -1840,6 +2074,7 @@ void CardLearningMaster()
           iRFID++;
           while (TagLength < 16)
           {
+            wdt_reset();
             IntegerDataStringArray[iRFID] = RFIDID;
             TagLength++;
             iRFID++;
@@ -1851,6 +2086,7 @@ void CardLearningMaster()
           //Serial.print("Modified Length: "); Serial.println(TagLength);
           for (unsigned int u = 0; u < TagLength; u++)
           {
+            
             //Serial.print(IntegerDataStringArray[u]);
             if (u <= 3)
             {
@@ -1876,19 +2112,22 @@ void CardLearningMaster()
         Serial3.print("TAG ID: "); Serial3.print("Normal: ");
         for (int p = 0; p < 4; p++)
         {
+          
           //Serial.print("0x");
           Serial3.print(uid[p]);
           //Serial.print(" ");
           uidLength++;
         }
-        Serial.println();
+        Serial3.println();
     Serial3.println("Card From RFID Reader...");
     for (int ichar = 0; ichar < 3; ichar++)
       {
+        
         sprintf(uidchar,"%X", uid[ichar]);
         uidString = uidchar;
         uidString += "-";
-        uidchar[6] = "";
+        //Itt is csereltem
+        uidchar[6] = '\0';
         Serial3.print(ichar+1);Serial3.print(" String is: "); Serial3.println(uidString);
         UidStringToMysql += uidString;
       }
@@ -1896,7 +2135,8 @@ void CardLearningMaster()
     sprintf(uidchar, "%X", uid[3]);
     uidString = uidchar;
     uidString += "-";
-    uidchar[6] = "";
+    //Itt is csereltem
+    uidchar[6] = '\0';
     Serial3.print(4);Serial3.print(" String is: "); Serial3.println(uidString);
     UidStringToMysql += uidString + uidStringend;
       //UidStringToMysql = "";
@@ -1907,10 +2147,12 @@ void CardLearningMaster()
     Serial3.println("Card From NFC Reader...");
     for (int ichar = 0; ichar < 3; ichar++)
       {
+        
         sprintf(uidchar,"%X", uid[ichar]);
         uidString = uidchar;
         uidString += "-";
-        uidchar[6] = "";
+        //Itt is csereltem
+        uidchar[6] = '\0';
         Serial3.print(ichar);Serial3.print(" String is: "); Serial3.println(uidString);
         UidStringToMysql += uidString;
       }
@@ -1918,7 +2160,8 @@ void CardLearningMaster()
     sprintf(uidchar, "%X", uid[3]);
     uidString = uidchar;
     uidString += "-";
-    uidchar[6] = "";
+    //Itt is csereltem
+    uidchar[6] = '\0';
     Serial3.print(4);Serial3.print(" String is: "); Serial3.println(uidString);
     UidStringToMysql += uidString + uidStringend;
   }
@@ -1932,10 +2175,13 @@ void CardLearningMaster()
   //Serial3.println(NFCCARDBUFFER);
   Serial3.print("String is: "); Serial3.println(UidStringToMysql);
   CardData = UidStringToMysql;
-  UidStringToMysql = "";
+  //Itt is csereltem
+  //UidStringToMysql = "";
+  UidStringToMysql.remove(0, UidStringToMysql.length());
   //Serial3.print("Modified: "); Serial3.println(UidStringToMysql);
   for (unsigned int i = 0; i < sizeof(uid); i++)
   {
+    
     uid[i] = 0;
   }
   uidLength = 0;
@@ -1946,28 +2192,40 @@ void CardLearningMaster()
   //while(true);
   MySQLConnectionCurrTimeOut = millis();
   //{
-    MySQLCardNumbersReturn = Serial.readString();
+    //Ez az eredeti
+    //MySQLCardNumbersReturn = Serial.readString();
+    MySQLCardNumbersReturn = Serial.readStringUntil('\n');
     if(MySQLCardNumbersReturn == "555")
     {
       MySQLConnectionPrevTimeOut = MySQLConnectionCurrTimeOut;
       Serial3.println("Please choose another card, it's already taken hit (y) or hit (n) to go back!");
-      MySQLCardDataToDB = "";
+      //Itt is csereltem
+      //MySQLCardDataToDB = "";
+      MySQLCardDataToDB.remove(0, MySQLCardDataToDB.length());
       for (unsigned int i = 0; i < sizeof(uid); i++)
       {
+        
         uid[i] = 0;
       }
       uidLength = 0;
       while(true)
       {
+        wdt_reset();
         SendTimeToNextion();
         NextionCurrentTime = millis();        
         int CardAlRDYTaken2 = Serial3.read();
         if(CardAlRDYTaken2 == 'n' || CardAlRDYTaken2 == 'N')
         {
           uidLength = 0;
-          MySQLCardDataToDB = "";
-          FirstName = "";
-          LastName = "";
+          //Itt is csereltem
+          //MySQLCardDataToDB = "";
+          MySQLCardDataToDB.remove(0, MySQLCardDataToDB.length());
+          //Itt is csereltem
+          //FirstName = "";
+          FirstName.remove(0, FirstName.length());
+          //Itt is csereltem
+          //LastName = "";
+          LastName.remove(0, LastName.length());
           FirstNameBool = false;
           LastNameBool = false;
           CardLearningName = false;
@@ -2010,9 +2268,15 @@ void CardLearningMaster()
         uid[i] = 0;
       }
       uidLength = 0;
-      MySQLCardDataToDB = "";
-      FirstName = "";
-      LastName = "";
+      //Itt is csereltem
+      //MySQLCardDataToDB = "";
+      MySQLCardDataToDB.remove(0, MySQLCardDataToDB.length());
+      //Itt is csereltem
+      //FirstName = "";
+      FirstName.remove(0, FirstName.length());
+      //Itt is csereltem
+      //LastName = "";
+      LastName.remove(0, LastName.length());
       FirstNameBool = false;
       LastNameBool = false;
       CardLearningName = false;
@@ -2020,6 +2284,7 @@ void CardLearningMaster()
       Serial3.print("Do you want to add one more Card (y)? If you dont, please hit (n)!");
       while(true)
       {
+        wdt_reset();
         SendTimeToNextion();
         NextionCurrentTime = millis();
         CardChoice2 = Serial3.read();
@@ -2040,9 +2305,15 @@ void CardLearningMaster()
         else if(CardChoice2 == 'n' || CardChoice2 == 'N')
         {
           uidLength = 0;
-          MySQLCardDataToDB = "";
-          FirstName = "";
-          LastName = "";
+          //Itt is csereltem
+          //MySQLCardDataToDB = "";
+          MySQLCardDataToDB.remove(0, MySQLCardDataToDB.length());
+          //Itt is csereltem
+          //FirstName = "";
+          FirstName.remove(0, FirstName.length());
+          //Itt is csereltem
+          //LastName = "";
+          LastName.remove(0, LastName.length());
           FirstNameBool = false;
           LastNameBool = false;
           CardLearningName = false;
@@ -2202,7 +2473,9 @@ void accesscontrolmysql()
             uidLength++;
           }
     }*/
-    UidStringToMysql = "";
+    //Itt is csereltem
+    //UidStringToMysql = "";
+    UidStringToMysql.remove(0, UidStringToMysql.length());
     if(byteFromESP32[0] == 255 && byteFromESP32[1] != 155)
     {
       Serial3.println();
@@ -2213,14 +2486,18 @@ void accesscontrolmysql()
         sprintf(uidchar,"%X", byteFromESP32[ichar+2]);
         uidString = uidchar;
         uidString += "-";
-        uidchar[6] = "";
+        //Itt is csereltem
+        //uidchar[6] = "";
+        uidchar[6] = '\0';
         Serial3.print(ichar);Serial3.print("String is: "); Serial3.println(uidString);
         UidStringToMysql += uidString;
       }
       sprintf(uidchar, "%X", byteFromESP32[5]);
       uidString = uidchar;
       uidString += "-";
-      uidchar[6] = "";
+      //Itt is csereltem
+      //uidchar[6] = "";
+      uidchar[6] = '\0';
       Serial3.print(4);Serial3.print(" String is: "); Serial3.println(uidString);
       UidStringToMysql += uidString + uidStringend;
       Serial3.print("String is: "); Serial3.println(UidStringToMysql);
@@ -2239,14 +2516,18 @@ void accesscontrolmysql()
         sprintf(uidchar,"%X", byteFromESP32[ichar+2]);
         uidString = uidchar;
         uidString += "-";
-        uidchar[6] = "";
+        //Itt is csereltem
+        //uidchar[6] = "";
+        uidchar[6] = '\0';
         Serial3.print(ichar);Serial3.print("String is: "); Serial3.println(uidString);
         UidStringToMysql += uidString;
       }
       sprintf(uidchar, "%X", byteFromESP32[5]);
       uidString = uidchar;
       uidString += "-";
-      uidchar[6] = "";
+      //Itt is csereltem
+      //uidchar[6] = "";
+      uidchar[6] = '\0';
       Serial3.print(4);Serial3.print(" String is: "); Serial3.println(uidString);
       UidStringToMysql += uidString + uidStringend;
       Serial3.print("String is: "); Serial3.println(UidStringToMysql);
@@ -2260,17 +2541,25 @@ void accesscontrolmysql()
       ReadedCard = true;
     }
     //Release Tag
-    tag = "";
+    //Itt is csereltem
+    //tag = "";
+    tag.remove(0, tag.length());
     for (unsigned int i = 0; i < sizeof(byteFromESP32); i++)
       {
         byteFromESP32[i] = 0;
       }
     uidLength = 0;
-    CardData = "";
+    //Itt is csereltem
+    //CardData = "";
+    CardData.remove(0, CardData.length());
     CardData = UidStringToMysql;
-    UidStringToMysql = "";
+    //Itt is csereltem
+    //UidStringToMysql = "";
+    UidStringToMysql.remove(0, UidStringToMysql.length());
     Serial3.println(CardData);
-    MySQLCardDataToDB = "";
+    //Itt is csereltem
+    //MySQLCardDataToDB = "";
+    MySQLCardDataToDB.remove(0, MySQLCardDataToDB.length());
     if(CardData != "")
     {
       MySQLCardDataToDB += MySQLAccessControlIdentifier + MySQLSeparator + CardData + MySQLSeparator;
@@ -2279,14 +2568,18 @@ void accesscontrolmysql()
       Serial.println(MySQLCardDataToDB);
     }
     //while(1);
-    MySQLCardNumbersReturn = "";
+    //Itt is csereltem
+    //MySQLCardNumbersReturn = "";
+    MySQLCardNumbersReturn.remove(0, MySQLCardNumbersReturn.length());
     MySQLConnectionCurrTimeOut = millis();
     MySQLConnectionPrevTimeOut = MySQLConnectionCurrTimeOut;
     while(ReadedCard)
     {
       Serial3.println("1x");
       MySQLConnectionCurrTimeOut = millis();
-      MySQLCardNumbersReturn = Serial.readString();
+      //Ez az eredeti
+      //MySQLCardNumbersReturn = Serial.readString();
+      MySQLCardNumbersReturn = Serial.readStringUntil('\n');
       if(MySQLConnectionCurrTimeOut > MySQLConnectionPrevTimeOut + MySQLConnectionTimeOutInterval)
       {
         //Serial.print("Final Counter is: "); Serial.println(Counter);
@@ -2522,6 +2815,7 @@ void CardReadOutMySQL()
 
 void CardReadOutMySQLv2()
 {
+  wdt_reset();
   SendTimeToNextion();
   NextionCurrentTime = millis();  
   Serial3.println("Req from DB");
@@ -2531,7 +2825,8 @@ void CardReadOutMySQLv2()
   //Send DB request
   Serial.println(MySQLCardReadOutIndentifier);
   Serial3.println(MySQLCardReadOutIndentifier);
-  String MysqlCardDatafromDB = "";
+  String MysqlCardDatafromDB;
+  MysqlCardDatafromDB.remove(0, MysqlCardDatafromDB.length());
   String DatalengthStr = "";
   int Datalength = 0;
   boolean CardsFromDB = true;
@@ -2553,11 +2848,12 @@ void CardReadOutMySQLv2()
   char StringtoCharUID4[4];
   //int val = 0;
   uint8_t CardFromDBIntarray[6] = {255, 254, 0, 0 , 0, 0};
-  char EndOfCardDataFromDB[3] = "";
+  //char EndOfCardDataFromDB[3] = "";
   String LastCardDatas  = "";
   //uint8_t CardNUmToLoRa[5] = {42, 42, 45, val, 42};
   while(CardsFromDB)
   {
+    
     SendTimeToNextion();
     NextionCurrentTime = millis();
     input_a = Serial3.read();
@@ -2568,18 +2864,21 @@ void CardReadOutMySQLv2()
       loop();
       return;
     }
-    int ia = 0;
+    //int ia = 0;
     //delay(25);
-    long CarddataNumFromDB[3] = {0, 0, 0};
+    //long CarddataNumFromDB[3] = {0, 0, 0};
     while(Serial.available() > 0)
     {
+      wdt_reset();
       SendTimeToNextion();
       NextionCurrentTime = millis();
       MysqlCardDatafromDB = Serial.readStringUntil('\n');
       Serial3.print("Data From DB: "); Serial3.println(MysqlCardDatafromDB);
       DatalengthStr = MysqlCardDatafromDB.length();
       Datalength = DatalengthStr.toInt();
-      DatalengthStr = "";
+      //Itt is csereltem
+      //DatalengthStr = "";
+      DatalengthStr.remove(0, DatalengthStr.length());
       Serial3.print("Data Length from DB is: "); Serial3.println(Datalength);
       //To Card numbers
       if(MysqlCardDatafromDB == "553")
@@ -2589,7 +2888,7 @@ void CardReadOutMySQLv2()
       if (Datalength > 0 && NMC)
       {
         Serial3.println("Ide jovokasdaasf!!!");
-        for (int u = 0; u < Datalength+1; u++)
+        for (unsigned int u = 0; u < Datalength+1; u++)
         {
           SendTimeToNextion();
           NextionCurrentTime = millis();
@@ -2603,13 +2902,15 @@ void CardReadOutMySQLv2()
             String CNS = CardNumbersStore;
             CNS.remove(CNS.length()-1);
             String CNSREMOVE = CNS;
-            char NumOfCardsFromDB[6] = "";
+            char NumOfCardsFromDB[6] = "\0";
             //CNSREMOVE.remove(0,1);
             Serial3.print("Number of Cards are: "); Serial3.println(CNSREMOVE);
             u = Datalength+1;
             //vagy itt átírom akkora számra ahánykártya van és write-al küldöm el.
             //Serial1.print(CardNumbersStore);
-            CardNumbersStore = "";
+            //Itt is csereltem
+            //CardNumbersStore = "";
+            CardNumbersStore.remove(0, CardNumbersStore.length());
 
             //NMC = false;
 
@@ -2639,6 +2940,7 @@ void CardReadOutMySQLv2()
       Serial3.println("---------------");
       for(int i = 3; i < Datalength+1; i++)
       {
+        
         SendTimeToNextion();
         NextionCurrentTime = millis();
         UIDString = MysqlCardDatafromDB.substring(i, i+1);
@@ -2652,6 +2954,7 @@ void CardReadOutMySQLv2()
           //Serial3.print("CHR now is: "); Serial3.println(CHR);
           for(; CHR < StarPlaceString; CHR++)
           {
+            
             SendTimeToNextion();
             NextionCurrentTime = millis();
             //Serial3.print("CHR: "); Serial3.println(CHR);
@@ -2659,7 +2962,9 @@ void CardReadOutMySQLv2()
             if(UIDBytesAdd != "-")
             {
               UIDBytesStr1 += UIDBytesAdd;
-              UIDBytesAdd = "";
+              //Itt is csereltem
+              //UIDBytesAdd = "";
+              UIDBytesAdd.remove(0, UIDBytesAdd.length());
               //Serial3.println("Megint itt...1");
             }else if(UIDBytesAdd == "-")
             {
@@ -2669,6 +2974,7 @@ void CardReadOutMySQLv2()
               //Serial3.println("Megint itt...1.1");
               for(; CHR < StarPlaceString; CHR++)
               {
+                
                 SendTimeToNextion();
                 NextionCurrentTime = millis();
                 //Serial3.print("CHR: "); Serial3.println(CHR);
@@ -2676,7 +2982,9 @@ void CardReadOutMySQLv2()
                 if(UIDBytesAdd != "-")
                 {
                   UIDBytesStr2 += UIDBytesAdd;
-                  UIDBytesAdd = "";
+                  //Itt is csereltem
+                  //UIDBytesAdd = "";
+                  UIDBytesAdd.remove(0, UIDBytesAdd.length());
                   //Serial3.println("Megint itt...2");
                 }else if(UIDBytesAdd == "-")
                 {
@@ -2686,6 +2994,7 @@ void CardReadOutMySQLv2()
                   //Serial3.println("Megint itt...2.2");
                   for(; CHR < StarPlaceString; CHR++)
                   {
+                    
                     SendTimeToNextion();
                     NextionCurrentTime = millis();
                     //Serial3.print("CHR: "); Serial3.println(CHR);
@@ -2693,7 +3002,9 @@ void CardReadOutMySQLv2()
                     if(UIDBytesAdd != "-")
                     {
                       UIDBytesStr3 += UIDBytesAdd;
-                      UIDBytesAdd = "";
+                      //Itt is csereltem
+                      //UIDBytesAdd = "";
+                      UIDBytesAdd.remove(0, UIDBytesAdd.length());
                       //Serial3.println("Megint itt...3");
                     }else if(UIDBytesAdd == "-")
                     {
@@ -2703,6 +3014,7 @@ void CardReadOutMySQLv2()
                       //Serial3.println("Megint itt...3.3");
                       for(; CHR < StarPlaceString; CHR++)
                       {
+                        
                         SendTimeToNextion();
                         NextionCurrentTime = millis();
                         //Serial3.print("CHR: "); Serial3.println(CHR);
@@ -2710,7 +3022,9 @@ void CardReadOutMySQLv2()
                         if(UIDBytesAdd != "-")
                         {
                           UIDBytesStr4 += UIDBytesAdd;
-                          UIDBytesAdd = "";
+                          //Itt is csereltem
+                          //UIDBytesAdd = "";
+                          UIDBytesAdd.remove(0, UIDBytesAdd.length());
                           //Serial3.println("Megint itt...4");
                         }else if(UIDBytesAdd == "-")
                         {
@@ -2720,6 +3034,7 @@ void CardReadOutMySQLv2()
                           //Serial3.println("Megint itt...4.4");
                           for(; CHR < StarPlaceString+1; CHR++)
                           {
+                            wdt_reset(); 
                             SendTimeToNextion();
                             NextionCurrentTime = millis();
                             //Serial3.print("Last CHR: "); Serial3.println(CHR);
@@ -2731,6 +3046,7 @@ void CardReadOutMySQLv2()
                               NextionCurrentTime = millis();
                               delay(450);
                               SendTimeToNextion();
+                              
                               NextionCurrentTime = millis();
                               Serial3.print("Last Character is: "); Serial3.println(UIDBytesAdd);
                               Serial3.print("CHR is before editing: "); Serial3.println(CHR);
@@ -2780,18 +3096,33 @@ void CardReadOutMySQLv2()
                               
 
                               //Releases
-                              UIDBytesAdd = "";
-                              UIDBytesStr1 = "";
-                              UIDBytesStr2 = "";
-                              UIDBytesStr3 = "";
-                              UIDBytesStr4 = "";
+                              //UIDBytesAdd = "";
+                              //Itt is csereltem
+                              //UIDBytesAdd = "";
+                              UIDBytesAdd.remove(0, UIDBytesAdd.length());
+                              //Itt is csereltem
+                              //UIDBytesStr1 = "";
+                              UIDBytesStr1.remove(0, UIDBytesStr1.length());
+                              //Itt is csereltem
+                              //UIDBytesStr2 = "";
+                              UIDBytesStr2.remove(0, UIDBytesStr2.length());
+                              //Itt is csereltem
+                              //UIDBytesStr3 = "";
+                              UIDBytesStr3.remove(0, UIDBytesStr3.length());
+                              //Itt is csereltem
+                              //UIDBytesStr4 = "";
+                              UIDBytesStr4.remove(0, UIDBytesStr4.length());
                               CDBI = 2;
                               for (int i = 0; i < 3; i++)
                               {
-                                StringtoCharUID1[i] = 0;
-                                StringtoCharUID2[i] = 0;
-                                StringtoCharUID3[i] = 0;
-                                StringtoCharUID4[i] = 0;
+                                //Itt is csereltem
+                                StringtoCharUID1[i] = '\0';
+                                //Itt is csereltem
+                                StringtoCharUID2[i] = '\0';
+                                //Itt is csereltem
+                                StringtoCharUID3[i] = '\0';
+                                //Itt is csereltem
+                                StringtoCharUID4[i] = '\0';
                                 CardFromDBIntarray[i+2] = 0;
 
                               }
@@ -2808,12 +3139,16 @@ void CardReadOutMySQLv2()
               }
             }
           }
+        wdt_reset();
         UIDString = Serial.readString();
         }
         if(UIDString == "@")
         {
-          LastCardDatas = "";
-          char LastCardDatChar[3] = "";
+          wdt_reset();
+          //Itt is csereltem
+          //LastCardDatas = "";
+          LastCardDatas.remove(0, LastCardDatas.length());
+          char LastCardDatChar[3] = "\0";
           int LCD = 0;
           Serial3.println("Utolso kartya adat is meg van");
           /*Serial3.println(i);
@@ -2840,9 +3175,12 @@ void CardReadOutMySQLv2()
             Serial1.write(EndOfCardDataFromDBInt, sizeof(EndOfCardDataFromDBInt));            
             CardsFromDB = false;
             delay(500);
+            wdt_reset();
             Serial1.write(RetryCardDataDownloadCallBackPackage, sizeof(RetryCardDataDownloadCallBackPackage));
             Serial3.println("Waiting for incoming Data");
-            MysqlCardDatafromDB = "";
+            //Itt is csereltem
+            //MysqlCardDatafromDB = "";
+            MysqlCardDatafromDB.remove(0, MysqlCardDatafromDB.length());
             Serial3.println("Waiting for log/action");
             readfromoutsideLoRa();
             main_menu = 1;
@@ -2861,14 +3199,25 @@ int StrToHex(char str[])
 }
 void SendActionToMysql()
 {
-  CardData = "";
-  MySQLCardDataToDB = "";
+  unsigned int L_MySQLCardDataToDB = MySQLCardDataToDB.length();
+  Serial3.print("Data Length in MySQLCardNumbersReturn: "); Serial3.println(MySQLCardDataToDB);
+  for(unsigned int i = 0; i < L_MySQLCardDataToDB; i++)
+  {
+    MySQLCardDataToDB.remove(i, 1000);
+  }
+  Serial3.print("Data in MySQLCardNumbersReturn: "); Serial3.println(MySQLCardDataToDB);
+  //Itt is csereltem
+  //CardData = "";
+  CardData.remove(0, CardData.length());
+  //Itt is csereltem
+  //MySQLCardDataToDB = "";
+  MySQLCardDataToDB.remove(0, MySQLCardDataToDB.length());
   Serial3.println("Action saved to DB.");
   String ActionDataIdentifier = "1";
   String ActiondatatomysqlDB = "";
   String ActionType = "";
   String RTCtoDBStr = "";
-  char RTCtoDB[7] = "";
+  char RTCtoDB[7] = "\0";
   if((byteFromESP32[0] == 255 && byteFromESP32[1] == 255) || (byteFromESP32[0] == 255 && byteFromESP32[1] == 155))
   {
     Serial3.println("It's a Carding Action");
@@ -2901,7 +3250,7 @@ void SendActionToMysql()
   }else if(byteFromESP32[0] == 111 && byteFromESP32[1] == 111 && byteFromESP32[2] == 22)
   {
     ActionType = "22";
-    Serial3.print("Retry Card Data Download Action at: "); Serial3.print("20"); Serial3.print(byteFromESP32[9], DEC); Serial3.print(" "); Serial3.print(byteFromESP32[10], DEC); Serial3.print(" "); Serial3.print(byteFromESP32[11], DEC); Serial3.print(" "); Serial3.print(" "); Serial3.print(byteFromESP32[13], DEC); Serial3.print(byteFromESP32[14], DEC); Serial3.println(byteFromESP32[15], DEC);
+    Serial3.print("Retry Card Data Download Action at: "); Serial3.print("20"); Serial3.print(byteFromESP32[9], DEC); Serial3.print(" "); Serial3.print(byteFromESP32[10], DEC); Serial3.print(" "); Serial3.print(byteFromESP32[11], DEC); Serial3.print(" "); Serial3.print(" "); Serial3.print(byteFromESP32[13], DEC); Serial3.print(":"); Serial3.print(byteFromESP32[14], DEC); Serial3.print(":"); Serial3.println(byteFromESP32[15], DEC);
     //////
     ReadedCard = true;
     //////
@@ -2933,9 +3282,26 @@ void SendActionToMysql()
   {
     Serial3.println("Powersupply DC Output power is insufficient.");
     ActionType = "29";
+  }else if(byteFromESP32[0] == 111 && byteFromESP32[1] == 111 && byteFromESP32[2] == 33)
+  {
+    Serial3.println("Door opened by SmartPhone App.");
+    ActionType = "33";
+  }else if(byteFromESP32[0] == 111 && byteFromESP32[1] == 111 && byteFromESP32[2] == 34)
+  {
+    Serial3.println("Retry Card Data Download Was Success.");
+    ActionType = "34";
+  }else if(byteFromESP32[0] == 111 && byteFromESP32[1] == 111 && byteFromESP32[2] == 35)
+  {
+    Serial3.println("Retry Card Data Download Was Success.");
+    ActionType = "35";
+  }else if(byteFromESP32[0] == 111 && byteFromESP32[1] == 111 && byteFromESP32[2] == 36)
+  {
+    Serial3.println("Retry Card Data Download Was Failed.");
+    ActionType = "36";
   }
-
-    UidStringToMysql = "";
+    //Itt is csereltem
+    //UidStringToMysql = "";
+    UidStringToMysql.remove(0, UidStringToMysql.length());
     if(byteFromESP32[0] == 255 && byteFromESP32[1] != 155)
     {
       Serial3.println();
@@ -2945,14 +3311,16 @@ void SendActionToMysql()
         sprintf(uidchar,"%X", byteFromESP32[ichar+2]);
         uidString = uidchar;
         uidString += "-";
-        uidchar[6] = "";
+        //Itt is csereltem
+        uidchar[6] = '\0';
         Serial3.print(ichar);Serial3.print("String is: "); Serial3.println(uidString);
         UidStringToMysql += uidString;
       }
       sprintf(uidchar, "%X", byteFromESP32[5]);
       uidString = uidchar;
       uidString += "-";
-      uidchar[6] = "";
+      //Itt is csereltem
+      uidchar[6] = '\0';
       Serial3.print(4);Serial3.print(" String is: "); Serial3.println(uidString);
       UidStringToMysql += uidString;
       Serial3.print("String is: "); Serial3.println(UidStringToMysql);
@@ -2966,33 +3334,43 @@ void SendActionToMysql()
         sprintf(uidchar,"%X", byteFromESP32[ichar+2]);
         uidString = uidchar;
         uidString += "-";
-        uidchar[6] = "";
+        //Itt is csereltem
+        uidchar[6] = '\0';
         Serial3.print(ichar);Serial3.print("String is: "); Serial3.println(uidString);
         UidStringToMysql += uidString;
       }
       sprintf(uidchar, "%X", byteFromESP32[5]);
       uidString = uidchar;
       uidString += "-";
-      uidchar[6] = "";
+      //Itt is csereltem
+      uidchar[6] = '\0';
       Serial3.print(4);Serial3.print(" String is: "); Serial3.println(uidString);
       UidStringToMysql += uidString;
       Serial3.print("String is: "); Serial3.println(UidStringToMysql);
       ReadedCard = true;
     }
       //Release Tag
-      tag = "";
+      //Itt is csereltem
+      //tag = "";
+      tag.remove(0, tag.length());
       uidLength = 0;
-      CardData = "";
+      //Itt is csereltem
+      //CardData = "";
+      CardData.remove(0, CardData.length());
       CardData = UidStringToMysql;
-      UidStringToMysql = "";
+      //Itt is csereltem
+      //UidStringToMysql = "";
+      UidStringToMysql.remove(0, UidStringToMysql.length());
       Serial3.print("Card Data is: "); Serial3.println(CardData);    
       //RTC Data to db
       MySQLCardDataToDB += ActionDataIdentifier + MySQLSeparator + CardData + MySQLSeparator;
       for (unsigned int i = 9; i < 16; i++)
       {
+        
         sprintf(RTCtoDB, "%i", byteFromESP32[i]);
         RTCtoDBStr = RTCtoDB;
-        RTCtoDB[7] = "";
+        //Itt is csereltem
+        RTCtoDB[7] = '\0';
         Serial3.print(i);Serial3.print(" String is: "); Serial3.println(RTCtoDBStr);
         MySQLCardDataToDB += RTCtoDBStr;
       }
@@ -3000,11 +3378,21 @@ void SendActionToMysql()
       Serial3.print("Data to MYSQL: "); Serial3.println(MySQLCardDataToDB);
       Serial3.println(MySQLCardDataToDB);
       Serial.println(MySQLCardDataToDB);
-    MySQLCardNumbersReturn = "";
+    //MySQLCardNumbersReturn = "";
+    //We should release MySQLCardNumbersReturn data
+    unsigned int L_MySQLCardNumbersReturn = MySQLCardNumbersReturn.length();
+    Serial3.print("Data Length in MySQLCardNumbersReturn: "); Serial3.println(L_MySQLCardNumbersReturn);
+    
+    Serial3.print("Data in MySQLCardNumbersReturn: "); Serial3.println(MySQLCardNumbersReturn);
+    for(unsigned int i = 0; i < L_MySQLCardNumbersReturn; i++)
+    {
+      MySQLCardNumbersReturn.remove(i, L_MySQLCardNumbersReturn);
+    }
     MySQLConnectionCurrTimeOut = millis();
     MySQLConnectionPrevTimeOut = MySQLConnectionCurrTimeOut;
     for (unsigned int i = 0; i < sizeof(byteFromESP32); i++)
       {
+        
         byteFromESP32[i] = 0;
       }
     while(ReadedCard)
@@ -3012,13 +3400,22 @@ void SendActionToMysql()
       NextionCurrentTime = millis();
       Serial3.println("1x");
       MySQLConnectionCurrTimeOut = millis();
-      MySQLCardNumbersReturn = Serial.readString();
+      //Ez az eredeti
+      //MySQLCardNumbersReturn = Serial.readString();
+      MySQLCardNumbersReturn = Serial.readStringUntil('\n');
       Serial3.print("Return data is: "); Serial3.println(MySQLCardNumbersReturn);
       if((MySQLConnectionCurrTimeOut > MySQLConnectionPrevTimeOut + MySQLConnectionTimeOutInterval) && (MySQLCardNumbersReturn != "118" || MySQLCardNumbersReturn != "119"))
       {
         MySQLConnectionPrevTimeOut = MySQLConnectionCurrTimeOut;
         Serial3.println("Failed to Connect to DB.");
         delay(3000);
+        L_MySQLCardNumbersReturn = MySQLCardNumbersReturn.length();
+        Serial3.print("Data Length in MySQLCardNumbersReturn: "); Serial3.println(L_MySQLCardNumbersReturn);
+        Serial3.print("Data in MySQLCardNumbersReturn: "); Serial3.println(MySQLCardNumbersReturn);
+        for(unsigned int i = 0; i < L_MySQLCardNumbersReturn; i++)
+        {
+          MySQLCardNumbersReturn.remove(i, L_MySQLCardNumbersReturn);
+        }
         ReadedCard = false;
         main_menu = 1;
         loop();
@@ -3039,11 +3436,27 @@ void SendActionToMysql()
         //ReadedCard = false;
         //NMC = true;
         //////
+        L_MySQLCardNumbersReturn = MySQLCardNumbersReturn.length();
+        Serial3.print("Data Length in MySQLCardNumbersReturn: "); Serial3.println(L_MySQLCardNumbersReturn);
+        
+        Serial3.print("Data in MySQLCardNumbersReturn: "); Serial3.println(MySQLCardNumbersReturn);
+        for(unsigned int i = 0; i < L_MySQLCardNumbersReturn; i++)
+        {
+          MySQLCardNumbersReturn.remove(i, L_MySQLCardNumbersReturn);
+        }
         NMC=true;
         CardReadOutMySQLv2();
+        
       }else
       {
-        Serial3.println("Visszamegyek...");
+        Serial3.print("Data in MySQLCardNumbersReturn: "); Serial3.println(MySQLCardNumbersReturn);
+        L_MySQLCardNumbersReturn = MySQLCardNumbersReturn.length();
+        Serial3.print("Data Length in MySQLCardNumbersReturn: "); Serial3.println(L_MySQLCardNumbersReturn);
+        for(unsigned int i = 0; i < L_MySQLCardNumbersReturn; i++)
+        {
+          MySQLCardNumbersReturn.remove(i, L_MySQLCardNumbersReturn);
+        }
+        Serial3.println("Minden rendben volt...");
         Serial3.println("Waiting for log/action");
         readfromoutsideLoRa();
       }
@@ -3263,15 +3676,18 @@ int CardUpdateToDB()
   Serial3.println("Please Choose Methodes:");
   Serial3.println("Methode 1: Update User's Card by name - type 1");
   Serial3.println("Methode 2: Update User's Card by User's ID - type 2");
-  boolean UInputBool, CardUpdateBool = true;
-  UpLastName, UpFirstName = "";
+  boolean /*UInputBool,*/ CardUpdateBool = true;
+  
+  //UpLastName, UpFirstName = "";
   boolean UpFirstNameBool, UpLastNameBool, updatetry;
-  unsigned int UInputLen;
-  UpLastName.remove(0, 1000);
-  UpFirstName.remove(0, 1000);
+  //unsigned int UInputLen;
+  UpLastName.remove(0, UpLastName.length());
+  UpFirstName.remove(0, UpFirstName.length());
   PrevUpdateCancel = millis();
+  
   do
   {
+    
     CardUpdateTimeCurrent = millis();
     CardUpdateTimePrev = millis();
     PrevUpdateCancel = millis();
@@ -3281,6 +3697,7 @@ int CardUpdateToDB()
       UInput = Serial3.read();
       if(UInput == '6')
       {
+        
         UInput = 0;
         main_menu = 1;
         loop();
@@ -3298,6 +3715,7 @@ int CardUpdateToDB()
         Serial3.print("UpLastName data is: "); Serial3.println(UpLastName);
         while(UpLastNameLen == 0)
         {
+          
           PrevUpdateCancel = millis();
           //Serial3.println("Haguz!");
           CardUpdateTimeCurrent = millis();
@@ -3312,6 +3730,7 @@ int CardUpdateToDB()
             UpLastNameLen = UpLastName.length();
             while(UpLastNameLen == 0)
             {
+              
               PrevUpdateCancel = millis();
               CardUpdateTimeCurrent = millis();
               CardUpdateTimePrev = millis();
@@ -3326,6 +3745,7 @@ int CardUpdateToDB()
                 Serial3.println("(y) - is yes, (n) is no");
                 while(UpLastNameBool)
                 {
+                  
                   PrevUpdateCancel = millis();
                   CardUpdateTimeCurrent = millis();
                   CardUpdateTimePrev = millis();
@@ -3348,6 +3768,7 @@ int CardUpdateToDB()
                     long Result = 0;
                     while(FindUser)
                     {
+                      
                       PrevUpdateCancel = millis();
                       CardUpdateTimeCurrent = millis();
                       Serial3.print("Current Time: "); Serial3.println(CardUpdateTimeCurrent);
@@ -3389,6 +3810,7 @@ int CardUpdateToDB()
                         
                         while(updatetry)
                         {
+                          
                           CurrUpdateCancel = millis();
                           //Serial3.print("Current UpTime: "); Serial3.println(CurrUpdateCancel);
                           Serial3.print("Prev UpTime: "); Serial3.println(PrevUpdateCancel);
@@ -3422,9 +3844,13 @@ int CardUpdateToDB()
                   }else if((input_a == 'n') || (input_a == 'N'))
                   {
                     Serial3.print("Name: "); Serial3.print(UpFirstName); Serial3.print(" "); Serial3.print(UpLastName); Serial3.println(" Deleted.");
-                    UpFirstName = "";
+                    //Itt is csereltem
+                    //UpFirstName = "";
+                    UpFirstName.remove(0, UpFirstName.length());
                     UpFirstNameBool = false;
-                    UpLastName = "";
+                    //Itt is csereltem
+                    //UpLastName = "";
+                    UpLastName.remove(0, UpLastName.length());
                     UpLastNameBool = false;
                     CardUpdateToDB();
                   } 
@@ -3462,6 +3888,7 @@ int CardUpdateToDB()
             Serial3.println("(y) - is yes, (n) is no");
             while (UIDBoolSure)
             {
+              
               input_a = Serial3.read();
               if((input_a == 'y') || (input_a == 'Y'))
               {
@@ -3472,6 +3899,7 @@ int CardUpdateToDB()
                 String MySQLUserIDReturnByte;
                 while(FindUserID)
                 {
+                  
                   MySQLUserIDReturnByte = Serial.readString();
                   if(MySQLUserIDReturnByte == "528")
                   {
@@ -3496,6 +3924,7 @@ int CardUpdateToDB()
                 Serial3.println("(y) - is yes, (n) is no");
                 while(ChngUID)
                 {
+                  
                   input_a = Serial3.read();
                   if((input_a == 'y') || (input_a == 'Y'))
                   {
