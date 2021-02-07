@@ -5,7 +5,7 @@
 #include <vector>
 #include <iostream>
 #define BAND 868E6   //433E6  //you can set band here directly,e.g. 868E6,915E6
-HardwareSerial MEGA(1);
+HardwareSerial MEGA(2);
 uint8_t CardDataFromKapu[18] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 uint8_t byteFromKapu;
 uint8_t CARDDATATOINSIDEMEGA;
@@ -19,29 +19,67 @@ boolean ReceiveDataFromLoRa();
 void SendCardDataToArduino();
 void ReceiveDataFromArduino();
 void GetControlDatacheckFromOutSideLoRa();
-void setup() {
+//Display outputs
+void dispinit();
+void disploggot();
+void displogtodb();
+void displogwait();
+void dispgotdatafromdb();
+void dispwaitprog();
+unsigned long previousMillis = 0;
+unsigned long previousMillisdisp = 0;
+const long interval = 20000;
+const long intervaldispstatus = 500;
+const int intervaldisplogtodb = 2000;
+unsigned long currentMillis, currentmillisdisp, currentmillisdisplogtodb;
+byte dispstatus = 0;
+boolean RCDDbool = false;
+boolean dispwaitprogbool = true;
+boolean displogtodbbool = false;
+boolean dispgotdatafromdbbool = false;
+boolean dispdatafromlorabool = false;
+void dispRetryCardDataDownload();
+void setup()
+{
   ///****
-  esp_task_wdt_init(2, true);
+  esp_task_wdt_init(8, true);
 
     //WIFI Kit series V1 not support Vext control
   //Serial.begin(115200);
-  MEGA.begin(115200,SERIAL_8N1, 36, 12); //RX, TX
+  //MEGA.begin(115200,SERIAL_8N1, 36, 12); //RX, TX
+  MEGA.begin(115200,SERIAL_8N1, 13, 12); //RX, TX
   Heltec.begin(true /*DisplayEnable Enable*/, true /*Heltec.LoRa Disable*/, true /*Serial Enable*/, true /*PABOOST Enable*/, BAND /*long BAND*/);
-  LoRa.setTxPowerMax(20);
+  //LoRa.setTxPowerMax(20);
   Serial.println();
   Serial.println("Hello It's LoRaInSide.");
   Serial.println("Waiting For InComing Data...");
+  dispinit();
+  delay(5000);
+  displogwait();
 }
 
-void loop() {    
+void loop()
+{
+  currentMillis = millis();
+  currentmillisdisp = millis();    
   //MEGA.write("9");
   //Serial.println("Hello2!");
   ///****
+  /*if (currentMillis - previousMillis >= interval)
+    {
+      // save the last time you blinked the LED
+      previousMillis = currentMillis;
+      displogwait();
+    }*/
+  if(dispwaitprogbool)
+  {
+    dispwaitprog();
+  }
   esp_task_wdt_reset();
 
   if(ReceiveDataFromLoRa()) {
     SendCardDataToArduino();
-    
+    dispwaitprogbool = true;
   }
 
   ReceiveDataFromArduino();
@@ -57,6 +95,11 @@ boolean ReceiveDataFromLoRa() {
   int packetSize = LoRa.parsePacket();
   
   if (packetSize) {
+    dispwaitprogbool = false;
+    dispdatafromlorabool = true;
+    displogtodbbool = false;
+    dispgotdatafromdbbool = false;
+    RCDDbool = false;
      // received a packet
     Serial.print("Received Packet From Gate LoRa: ");
     // read packet
@@ -107,6 +150,7 @@ void ReceiveDataFromArduino()
     //MEGA.readBytes(BackFromSenityStatus, 6);
     if(BackFromSenityStatus[0] == 0x2A && BackFromSenityStatus[1] == 0x2A && BackFromSenityStatus[2] == 0x2D && BackFromSenityStatus[4] == 0x2A)
     {
+      RCDDbool = true;
       Serial.println("Number of cards data has sent.");
       Serial.println(BackFromSenityStatus[0], HEX);
       Serial.println(BackFromSenityStatus[1], HEX);
@@ -120,6 +164,7 @@ void ReceiveDataFromArduino()
       
     }else if(BackFromSenityStatus[0] == 63 && BackFromSenityStatus[1] == 63 && BackFromSenityStatus[2] == 64)
     {
+      RCDDbool = true;
       Serial.println("It's the end of Card data from DB.");
       Serial.println(BackFromSenityStatus[0], HEX);
       Serial.println(BackFromSenityStatus[1], HEX);
@@ -129,6 +174,7 @@ void ReceiveDataFromArduino()
       LoRa.endPacket();
     }else if(BackFromSenityStatus[0] == 113 && BackFromSenityStatus[1] == 113 && BackFromSenityStatus[2] == 239)
     {
+      RCDDbool = false;
       Serial.println("Retry Card Data Donwload process Finished.");
       Serial.println(BackFromSenityStatus[0], HEX);
       Serial.println(BackFromSenityStatus[1], HEX);
@@ -138,7 +184,8 @@ void ReceiveDataFromArduino()
       LoRa.endPacket();
     }else if(BackFromSenityStatus[0] == 0x71 && BackFromSenityStatus[1] == 0x71 && BackFromSenityStatus[2] == 0xF0)
     {
-      Serial.println("It's Retry Card Data Donwload Connection.");
+      RCDDbool = true;
+      Serial.println("It's Retry Card Data Download Connection.");
       Serial.println(BackFromSenityStatus[0], HEX);
       Serial.println(BackFromSenityStatus[1], HEX);
       Serial.println(BackFromSenityStatus[2], HEX);
@@ -147,6 +194,7 @@ void ReceiveDataFromArduino()
       LoRa.endPacket();
     }else if(BackFromSenityStatus[0] == 0x71 && BackFromSenityStatus[1] == 0x71 && BackFromSenityStatus[2] == 0xF1)
     {
+      RCDDbool = false;
       Serial.println("The Database is empty");
       Serial.println(BackFromSenityStatus[0], HEX);
       Serial.println(BackFromSenityStatus[1], HEX);
@@ -214,7 +262,8 @@ void ReceiveDataFromArduino()
 
 
 void SendCardDataToArduino()
-{  
+{ 
+  displogtodbbool = true;
   //Serial.println("Kuldon az adatot");
   for(int i = 0; i < sizeof(CardDataFromKapu); i += 1)
   {
@@ -226,4 +275,180 @@ void GetControlDatacheckFromOutSideLoRa()
 {
   int ControlPacket = LoRa.parsePacket();
 
+}
+void dispinit()
+{
+  Heltec.display->init();
+  Heltec.display->flipScreenVertically();
+  Heltec.display->setFont(ArialMT_Plain_10);
+  Heltec.display->drawString(0, 0, "OLED initial done!");
+  Heltec.display->display();
+}
+void disploggot()
+{
+  Heltec.display->clear();
+  Heltec.display->drawString(0, 0, "Got Log From Gate!");
+  Heltec.display->display();
+}
+void displogtodb()
+{
+  if(displogtodbbool && (millis() >= currentmillisdisplogtodb + intervaldisplogtodb))
+  {
+    currentmillisdisplogtodb += intervaldisplogtodb;
+    Heltec.display->clear();
+    Heltec.display->drawString(0, 0, "Log Sent to DB!");
+	  Heltec.display->display();
+  }else if(displogtodbbool && (millis() <= currentmillisdisplogtodb + intervaldisplogtodb))
+  {
+    displogtodbbool = false;
+  }
+}
+void displogwait()
+{
+  Heltec.display->clear();
+  Heltec.display->drawString(0, 0, "Waiting for incoming data!");
+  Heltec.display->display();  
+}
+void dispRetryCardDataDownload()
+{
+  Heltec.display->clear();
+  Heltec.display->drawString(0, 0, "Retry Card Data Download!");
+	Heltec.display->display();
+}
+void dispgotdatafromdb()
+{
+  Heltec.display->clear();
+  Heltec.display->drawString(0, 0, "Got data from DB!");
+	Heltec.display->display();
+}
+void dispwaitprog()
+{
+  if ((currentmillisdisp - previousMillisdisp >= intervaldispstatus) && dispwaitprogbool)
+  {
+    previousMillisdisp = currentmillisdisp;
+    if(dispstatus == 0)
+    {
+      Heltec.display->clear();
+      //Serial.println("0");
+      Heltec.display->drawString(0, 12, "-");
+      dispstatus = 1;
+    }else if(dispstatus == 1)
+    {
+      Heltec.display->clear();
+      //Serial.println("1");
+      Heltec.display->drawString(0, 12, "- -");
+      dispstatus = 2;
+    }else if(dispstatus == 2)
+    {
+      Heltec.display->clear();
+      //Serial.println("2");
+      Heltec.display->drawString(0, 12, "- - - ");
+      dispstatus = 3;
+    }else if(dispstatus == 3)
+    {
+      Heltec.display->clear();
+      //Serial.println("3");
+      Heltec.display->drawString(0, 12, "- - - - ");
+      dispstatus = 4;
+    }else if(dispstatus == 4)
+    {
+      Heltec.display->clear();
+      //Serial.println("4");
+      Heltec.display->drawString(0, 12, "- - - - - ");
+      dispstatus = 5;
+    }else if(dispstatus == 5)
+    {
+      Heltec.display->clear();
+      //Serial.println("5");
+      Heltec.display->drawString(0, 12, "- - - - - - ");
+      dispstatus = 6;
+    }else if(dispstatus == 6)
+    {
+      Heltec.display->clear();
+      //Serial.println("6");
+      Heltec.display->drawString(0, 12, "- - - - - - - ");
+      dispstatus = 7;
+    }else if(dispstatus == 7)
+    {
+      Heltec.display->clear();
+      //Serial.println("7");
+      Heltec.display->drawString(0, 12, "- - - - - - - - ");
+      dispstatus = 8;
+    }else if(dispstatus == 8)
+    {
+      Heltec.display->clear();
+      //Serial.println("8");
+      Heltec.display->drawString(0, 12, "- - - - - - - - - ");
+      dispstatus = 9;
+    }else if(dispstatus == 9)
+    {
+      Heltec.display->clear();
+      //Serial.println("9");
+      Heltec.display->drawString(0, 12, "- - - - - - - - - - ");
+      dispstatus = 10;
+    }else if(dispstatus == 10)
+    {
+      Heltec.display->clear();
+      //Serial.println("10");
+      Heltec.display->drawString(0, 12, "- - - - - - - - - - -");
+      dispstatus = 11;
+    }else if(dispstatus == 11)
+    {
+      Heltec.display->clear();
+      //Serial.println("11");
+      Heltec.display->drawString(0, 12, "- - - - - - - - - - - - ");
+      dispstatus = 12;
+    }else if(dispstatus == 12)
+    {
+      Heltec.display->clear();
+      //Serial.println("12");
+      Heltec.display->drawString(0, 12, "- - - - - - - - - - - - - ");
+      dispstatus = 13;
+    }else if(dispstatus == 13)
+    {
+      Heltec.display->clear();
+      //Serial.println("13");
+      Heltec.display->drawString(0, 12, "- - - - - - - - - - - - - - ");
+      dispstatus = 14;
+    }else if(dispstatus == 14)
+    {
+      Heltec.display->clear();
+      //Serial.println("14");
+      Heltec.display->drawString(0, 12, "- - - - - - - - - - - - - - - ");
+      dispstatus = 15;
+    }else if(dispstatus == 15)
+    {
+      Heltec.display->clear();
+      //Serial.println("15");
+      Heltec.display->drawString(0, 12, "- - - - - - - - - - - - - - - - ");
+      dispstatus = 16;
+    }else if(dispstatus == 16)
+    {
+      Heltec.display->clear();
+      //Serial.println("16");
+      Heltec.display->drawString(0, 12, "- - - - - - - - - - - - - - - - - ");
+      dispstatus = 17;
+    }else if(dispstatus == 17)
+    {
+      Heltec.display->clear();
+      //Serial.println("17");
+      Heltec.display->drawString(0, 12, "- - - - - - - - - - - - - - - - - - ");
+      dispstatus = 18;
+    }else if(dispstatus == 18)
+    {
+      Heltec.display->clear();
+      //Serial.println("18");
+      Heltec.display->drawString(0, 12, "- - - - - - - - - - - - - - - - - - - ");
+      dispstatus = 19;
+    }else if(dispstatus == 19)
+    {
+      Heltec.display->clear();
+      //Serial.println("19");
+      Heltec.display->drawString(0, 12, "- - - - - - - - - - - - - - - - - - - -");
+      dispstatus = 0;
+    }
+    Heltec.display->drawString(0, 0, "Waiting for incoming data!");
+    Heltec.display->drawString(0, 48, "Senity Security Systems");
+    Heltec.display->display();
+  }
 }
