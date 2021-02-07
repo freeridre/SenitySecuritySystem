@@ -11,7 +11,7 @@ uint8_t uidLength;
 uint8_t DataCheck[3] = {1, 1, 1};
 uint8_t DataConfirm[3] = {2, 2, 2};
 uint8_t byteFromSerial = 0;
-//                    sig, sig, 1, 2, 3, 4, 5, 6, 7, y, m, d, dw,h, m, s, sig, sig
+//                  sig, sig, 1, 2, 3, 4, 5, 6, 7, y, m, d, dw,h, m, s, sig, sig
 uint8_t CARDDATA[18]={0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255};
 uint8_t DATA;
 uint8_t availableData;
