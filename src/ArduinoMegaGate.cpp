@@ -38,6 +38,7 @@ uint8_t gHue = 50;
 SoftwareSerial FingerPrintSerial(12, 13); // RX, TX
 //Adafruit_Fingerprint FingerPrint = Adafruit_Fingerprint(&FingerPrintSerial);
 SoftwareSerial HC05JDY30(10, 11); // RX, TX
+//SoftwareSerial HC05JDY30(44, 45); // RX, TX
 //Define Flags
 //if Datapackage[2] == 255 Door opened at
 //if Datapackage[2] == 254 Door closed at
@@ -79,7 +80,7 @@ void BuzzerCarding();
 boolean BuzzerON;
 byte BuzzerPreConf;
 
-unsigned long CardingImpulseInterval = 40;
+unsigned long CardingImpulseInterval = 100;
 unsigned long CardingImpulsePrev = millis();
 unsigned long CardingImpulseCurrentMillis = 0;
 void CardingTimeOut();
@@ -129,8 +130,11 @@ void EEPROM_RGB_BLINK();
 boolean EEPROM_RGB_BLINK_BOOL = false;
 void EEPROM_RGB_FINISH();
 void RCDDSucc();
+//Number of Cards memory place
 unsigned long eeprom_Card_Num = 127900;
+//Number of Card's bytes memory place
 unsigned long eeprom_All_Card_Data_Bytes = 126900;
+//120000:4=30000 cards
 unsigned long eeprom_Card_Num_Cont = 0;
 unsigned long eeprom_All_Card_Data_Bytes_Cont;
 boolean Card_data_download = false;
@@ -788,19 +792,20 @@ void setup()
 
   EEPROMReadOutAll();
   
-  EEPROM.get(7, Ardueeprom_all_Card_data_bytes_cont);
-  EEPROM.get(8, Ardueeprom_card_num_cont);
-  Serial.print("Last Card data address in Arduino EEPROM is: "); Serial.println(Ardueeprom_all_Card_data_bytes_cont);
-  Serial.print("Number of Card in Arduino EEPROM is: "); Serial.println(Ardueeprom_card_num_cont);
+  //EEPROM.get(7, Ardueeprom_all_Card_data_bytes_cont);
+  //EEPROM.get(8, Ardueeprom_card_num_cont);
+  //Serial.print("Last Card data address in Arduino EEPROM is: "); Serial.println(Ardueeprom_all_Card_data_bytes_cont);
+  //Serial.print("Number of Card in Arduino EEPROM is: "); Serial.println(Ardueeprom_card_num_cont);
 
   eeprom_All_Card_Data_Bytes_Cont = readFrom(chipAddress, eeprom_All_Card_Data_Bytes);
   eeprom_Card_Num_Cont = readFrom(chipAddress, eeprom_Card_Num);
   Serial.print("Last Card data address is: "); Serial.println(eeprom_All_Card_Data_Bytes_Cont);
   Serial.print("Number of Card is: "); Serial.println(eeprom_Card_Num_Cont);
   SendStartToDB();
-  delay(1000);
+  delay(5000);
   PowMonAtStart();
   //InsideEEPROM_Conf_for_Nextion();
+  
 }
 void RecieveDataFromGateLoRa()
 {
@@ -831,7 +836,8 @@ void RecieveDataFromGateLoRa()
     }
     //Serial.println();
   }
-  if(ControlData[0] == 0xC)
+  //Mysql Auth methode
+  /*if(ControlData[0] == 0xC)
   {
     LedBuzzerAccessGranted();
     Serial.println("Access Granted, door has just opened!");
@@ -844,7 +850,9 @@ void RecieveDataFromGateLoRa()
     }
     Serial.println("Access Denied!");
     Serial.println("Waiting for an ISO14443A Card ...");
-  }else if (ControlData[0] == 255 && ControlData[1] == 254)
+  }*/
+  //Second data income which contains the bytes of each card
+  if (ControlData[0] == 255 && ControlData[1] == 254)
   {
     //Card_dat_down_No_Card = true;
     EEPROM_RGB_BLINK_BOOL = true;
@@ -857,8 +865,9 @@ void RecieveDataFromGateLoRa()
     Serial3.print("\xFF\xFF\xFF");
     EEPROM_RGB_BLINK();
     CardfromDBToEEPROM();
-    EEPROM_RGB(0, 0, 0);
+    //EEPROM_RGB(0, 0, 0);
     //EEPROM_TIME_OUT_F();
+  //First data income which contains the number of cards at ControlData[3]  
   }else if(ControlData[0] == 0x2A && ControlData[1] == 0x2A && ControlData[2] == 0x2D && ControlData[4] == 0x2A)
   {
     Card_dat_down_No_Card = false;
@@ -875,23 +884,23 @@ void RecieveDataFromGateLoRa()
     unsigned int IntCardNum = (int)ControlData[3];
     
     Serial.print("Unit8_t converted to number of card value to int: "); Serial.println(IntCardNum);
-    EEPROM.put(8, Ardueeprom_card_num_cont);  
+    //EEPROM.put(8, Ardueeprom_card_num_cont);  
     writeTo(chipAddress, eeprom_Card_Num,  ControlData[3]);
     //Release Last Card data address
-    EEPROM.put(7, 0);
+    //EEPROM.put(7, 0);
     writeTo(chipAddress, eeprom_All_Card_Data_Bytes, 0);
      
     CardNumberStore = 0;
     Serial.print("Last Card address data in eeprom: "); Serial.println(readFrom(chipAddress, eeprom_All_Card_Data_Bytes));
-    Serial.print("Last Card address data in Arduino eeprom: "); Serial.println(EEPROM.get(7, Ardueeprom_all_Card_data_bytes_cont));
+    //Serial.print("Last Card address data in Arduino eeprom: "); Serial.println(EEPROM.get(7, Ardueeprom_all_Card_data_bytes_cont));
     Serial.print("Number of cards in eeprom: "); Serial.println(readFrom(chipAddress, eeprom_Card_Num));
-    Serial.print("Number of cards in Arduino eeprom: "); Serial.println(EEPROM.get(8, Ardueeprom_card_num_cont));
+    //Serial.print("Number of cards in Arduino eeprom: "); Serial.println(EEPROM.get(8, Ardueeprom_card_num_cont));
     //Serial.print("Read from eeprom: "); Serial.println(readFrom(chipAddress, eeprom_All_Card_Data_Bytes));
     
-    
+  //End of number of cards from DB  
   }else if(ControlData[0] == 63 && ControlData[1] == 63 && ControlData[2] == 64)
   {
-    //End of number of cards from DB
+    
     //EEPROM_RGB_FINISH();
     EEPROM_RGB_BLINK();
     EEPROM_RGB(0, 255, 0);
@@ -943,15 +952,15 @@ void CardfromDBToEEPROM()
   EEPROM_RGB_BLINK();
   //Összes kártya byte
   eeprom_All_Card_Data_Bytes_Cont = readFrom(chipAddress, eeprom_All_Card_Data_Bytes);
-  EEPROM.get(7, Ardueeprom_all_Card_data_bytes_cont);
+  //EEPROM.get(7, Ardueeprom_all_Card_data_bytes_cont);
   //Összes kártya száma
   eeprom_Card_Num_Cont = readFrom(chipAddress, eeprom_Card_Num);
-  EEPROM.get(8, Ardueeprom_card_num_cont);
+  //EEPROM.get(8, Ardueeprom_card_num_cont);
   Serial.print("Last Card data address is: "); Serial.println(eeprom_All_Card_Data_Bytes_Cont);
   Serial.print("Number of Card is from EEPROM: "); Serial.println(eeprom_Card_Num_Cont);
 
-  Serial.print("Last Card data address In Arduiono EEPROM is: "); Serial.println(Ardueeprom_all_Card_data_bytes_cont);
-  Serial.print("Number of Card is from Arduino EEPROM: "); Serial.println(Ardueeprom_card_num_cont);
+  //Serial.print("Last Card data address In Arduiono EEPROM is: "); Serial.println(Ardueeprom_all_Card_data_bytes_cont);
+  //Serial.print("Number of Card is from Arduino EEPROM: "); Serial.println(Ardueeprom_card_num_cont);
   //Delete all Card data
   while(Cardi < sizeof(ControlData))
   {
@@ -959,8 +968,8 @@ void CardfromDBToEEPROM()
     writeTo(chipAddress, eeprom_All_Card_Data_Bytes_Cont, ControlData[Cardi]);
     Serial.print(eeprom_All_Card_Data_Bytes_Cont);
     Serial.print(" Actual UID byte is: "); Serial.println(readFrom(chipAddress, eeprom_All_Card_Data_Bytes_Cont), HEX);
-    EEPROM.get(7, Ardueeprom_all_Card_data_bytes_cont);
-    Serial.print(" Actual UID byte in Arduino EEPROM is: "); Serial.println(Ardueeprom_all_Card_data_bytes_cont, HEX);
+    //EEPROM.get(7, Ardueeprom_all_Card_data_bytes_cont);
+    //Serial.print(" Actual UID byte in Arduino EEPROM is: "); Serial.println(Ardueeprom_all_Card_data_bytes_cont, HEX);
     Cardi++;
     eeprom_All_Card_Data_Bytes_Cont++;
   }
@@ -972,25 +981,25 @@ void CardfromDBToEEPROM()
   CardNumberStore++;
   Serial.print("eeprom Card Num Cont is: "); Serial.println(CardNumberStore);
   Cardi = 2;
-  EEPROM.put(8, CardNumberStore);
+  //EEPROM.put(8, CardNumberStore);
   writeTo(chipAddress, eeprom_Card_Num, CardNumberStore);
-  Serial.println("Ardu EEPROM Cards is ON.");
-  EEPROM.write(6, 1);
-  EEPROM.put(7, eeprom_All_Card_Data_Bytes_Cont);
+  //Serial.println("Ardu EEPROM Cards is ON.");
+  //EEPROM.write(6, 1);
+  //EEPROM.put(7, eeprom_All_Card_Data_Bytes_Cont);
   writeTo(chipAddress, eeprom_All_Card_Data_Bytes, eeprom_All_Card_Data_Bytes_Cont);
   EEPROM_RGB_BLINK();
   //unsigned long i = 0;
-  Serial.print("Actual cards in eeprom: ");
+  Serial.print("Actual cards in EEprom: ");
   Serial.println(readFrom(chipAddress, eeprom_Card_Num));
   
-  Serial.print("Actual cards in Arduino eeprom: ");
-  Serial.println(EEPROM.get(8, Ardueeprom_card_num_cont));
+  //Serial.print("Actual cards in Arduino eeprom: ");
+  //Serial.println(EEPROM.get(8, Ardueeprom_card_num_cont));
 
-  Serial.print("Actual last card add is eeprom: ");
+  Serial.print("Actual last card address in EEprom: ");
   Serial.println(readFrom(chipAddress, eeprom_All_Card_Data_Bytes));
 
-  Serial.print("Actual last card add is Arduino eeprom: ");
-  Serial.println(EEPROM.get(7, Ardueeprom_all_Card_data_bytes_cont));
+  //Serial.print("Actual last card add is Arduino eeprom: ");
+  //Serial.println(EEPROM.get(7, Ardueeprom_all_Card_data_bytes_cont));
   //EEPROMReadOutAll();
   /*while (true)
   {
@@ -1342,9 +1351,11 @@ void loop()
     }
   }
   //CardingImpulseCurrentMillis = millis();
+  
   if(Card_dat_down_No_Card)
   {
-    
+    //Serial.println("Uhasfasg");
+    //nfc.SAMConfig();
     if(cardreading())
       {
         //myRfid.begin();
@@ -1354,6 +1365,7 @@ void loop()
         senddatatolora();
         CardingTimeOut();
       }
+      
   }else if(!Card_dat_down_No_Card)
   {
     myRfid.clearTags();
@@ -1371,24 +1383,29 @@ void NFCINITIALIZE ()
 {
 
   nfc.begin();
+  nfc.SAMConfig();
+  nfc.inListPassiveTarget();
   //nfc.setPassiveActivationRetries(0x01);
   //nfc.setPassiveActivationRetries(0x00);
   delay(10);
   uint32_t versiondata = nfc.getFirmwareVersion();
+  delay(10);
   if (! versiondata) {
     Serial.print("Didn't find PN53x board");
     while (1); // halt
   }
-  nfc.setPassiveActivationRetries(0x00);
+  nfc.setPassiveActivationRetries(0x0);
   // Got ok data, print it out!
   Serial.print("Found chip PN5"); Serial.println((versiondata>>24) & 0xFF, HEX); 
   Serial.print("Firmware ver. "); Serial.print((versiondata>>16) & 0xFF, DEC); 
   Serial.print('.'); Serial.println((versiondata>>8) & 0xFF, DEC);
+  //nfc.SAMConfig();
+  //nfc.inListPassiveTarget();
   Serial.println("Waiting for a Card...");
 }
   boolean cardreading ()
 {
-  //Serial.println("ITT2");
+  //Serial.println("ITT11");
   ret = false;
   /*MOTIONPIR(PIRStateControl);
   ReturnMOTIONPIR = MOTIONPIR(PIRStateControl);
@@ -1399,7 +1416,9 @@ void NFCINITIALIZE ()
   //Ide is irtam
   //tag = "";
   tag.remove(0,sizeof(tag));
-    tag = myRfid.getTag();   
+  //Serial.println("ITT12");
+    tag = myRfid.getTag();
+    //Serial.println("ITT13");   
       if (tag.toInt() < 0)
       {
         BuzzerCarding();
@@ -1548,9 +1567,11 @@ void NFCINITIALIZE ()
     //Read card after every 2th seconds.
     
       //nfc.SAMConfig();
-
+      
       success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength);//, timeout = 50);
-      //success = nfc.inListPassiveTarget();
+      //nfc.AsTarget();
+      
+      
     
     //It's for NFC Carding detection
     uidDataPackage[0] = 255;
@@ -1685,7 +1706,6 @@ void NFCINITIALIZE ()
   {
     //Serial1.write(uid, uidLength);
     Serial.print("DataPackage is: ");
-    
     TimeStamp();
     delay(50);
     //Year
@@ -1716,7 +1736,9 @@ void NFCINITIALIZE ()
     Serial.print("Uid 4th byte: "); Serial.println(uid[3], HEX);
     Serial.print("Uid length: "); Serial.println(uidLength);*/
     Serial.println("UID, and TimeStamp HAS SENT TO LORA!");
-    Serial.print("The size of UID is: "); Serial.println(sizeof(uid));
+    Serial.print("The size of UID is: ");
+    int uid_size = sizeof(uid);
+    Serial.println(uid_size);
     for (unsigned int i = 0; i < sizeof(uid); i++)
     {
       uid[i] = 0;
@@ -1726,7 +1748,12 @@ void NFCINITIALIZE ()
     }
     uidLength = 0;
     Serial.println("UID, and UIDLength HAS Been Cleared!");
-    for (unsigned int ib = 2; iRFID < sizeof(uidDataPackage); iRFID++)
+    /*for (unsigned int ib = 2; iRFID < sizeof(uidDataPackage); iRFID++)
+    {
+      uidDataPackage[ib] = 0;
+      //Serial.print("0xx"); Serial.print(uidDataPackage[ib]);Serial.print(" ");
+    }*/
+    for (unsigned int ib = 2; ib < sizeof(uidDataPackage); ib++)
     {
       uidDataPackage[ib] = 0;
       //Serial.print("0xx"); Serial.print(uidDataPackage[ib]);Serial.print(" ");
@@ -1739,13 +1766,15 @@ void NFCINITIALIZE ()
       //int UIDDelete = uid[i];
       Serial.print("0x");
       Serial.print(uid[i], HEX);
+      Serial.print(" ");
     }
     Serial.print("\n");
-    for (unsigned int ib = 0; iRFID < sizeof(uidDataPackage); iRFID++)
+    for (unsigned int ib = 0; ib < sizeof(uidDataPackage); ib++)
     {
       //int UIDDelete = uidDataPackage[ib];
-      Serial.print("0x");
+      Serial.print(ib); Serial.print(". ");Serial.print("0x");
       Serial.print(uidDataPackage[ib], HEX);
+      Serial.print(" ");
     }
     Serial.print("\n");
     Serial.println();
@@ -2333,7 +2362,7 @@ void ReadFromNextion()
           Serial.println("Current number of Cards before deleting them: "); Serial.println(eeprom_Card_Num_Cont);
           EEPROM.write(6, 0);
           EEPROM.get(8, Ardueeprom_card_num_cont);
-          Serial.println("Current number of Cards before deleting them in Arduino EEPROM: "); Serial.println(EEPROM.get(8, Ardueeprom_card_num_cont));
+          //Serial.println("Current number of Cards before deleting them in Arduino EEPROM: "); Serial.println(EEPROM.get(8, Ardueeprom_card_num_cont));
           if(eeprom_Card_Num_Cont != 0 )
           {
             Serial.println("Card deleting started...");
@@ -2808,10 +2837,10 @@ void EEPROMReadOutAll()
   }
   eeprom_All_Card_Data_Bytes_Cont = readFrom(chipAddress, eeprom_All_Card_Data_Bytes);
   Serial.print("Last Stored UID byte address in EEPROM at INIT: "); Serial.println(eeprom_All_Card_Data_Bytes_Cont);
-  Serial.print("Last Stored UID byte address in Arduino EEPROM at INIT: "); Serial.println(EEPROM.get(7, Ardueeprom_all_Card_data_bytes_cont));
+  //Serial.print("Last Stored UID byte address in Arduino EEPROM at INIT: "); Serial.println(EEPROM.get(7, Ardueeprom_all_Card_data_bytes_cont));
   unsigned long INIT_EEPROM_NUM_UID = readFrom(chipAddress, eeprom_Card_Num);
   Serial.print("Number of Cards in EEPROM at INIT: "); Serial.println(INIT_EEPROM_NUM_UID);
-  Serial.print("Number of Cards in Arduino EEPROM at INIT: "); Serial.println(EEPROM.get(8, Ardueeprom_card_num_cont));
+  //Serial.print("Number of Cards in Arduino EEPROM at INIT: "); Serial.println(EEPROM.get(8, Ardueeprom_card_num_cont));
   //EEPROM_RGB_FINISH();
 }
 void EEPROMDeleteAll()
@@ -2904,10 +2933,10 @@ void ACCOffline()
   //EEPROMReadOutAll();
   unsigned long NumofCardsEEprom = readFrom(chipAddress, eeprom_Card_Num);
   Serial.print("Stored Cards are: "); Serial.println(NumofCardsEEprom);
-  Serial.print("Stored Cards in Arduino EEPROM are: "); Serial.println(EEPROM.get(8, Ardueeprom_card_num_cont));
+  //Serial.print("Stored Cards in Arduino EEPROM are: "); Serial.println(EEPROM.get(8, Ardueeprom_card_num_cont));
   unsigned long NumofLastCardAdd = readFrom(chipAddress, eeprom_All_Card_Data_Bytes);
   Serial.print("Last Stored UID byte address in EEPROM: "); Serial.println(NumofCardsEEprom);
-  Serial.print("Last Stored UID byte address in Arduino EEPROM: "); Serial.println(EEPROM.get(7, Ardueeprom_all_Card_data_bytes_cont));
+  //Serial.print("Last Stored UID byte address in Arduino EEPROM: "); Serial.println(EEPROM.get(7, Ardueeprom_all_Card_data_bytes_cont));
   uint8_t ActualByteFromEEprom = 0;
   //Serial.println(NumofCardsEEprom);
   //Serial.print("Last card eeprom address I: "); Serial.println(NumofLastCardAdd);
@@ -2983,10 +3012,10 @@ void EEPROM_Vansiher()
   EEPROM_RGB_BLINK();
   eeprom_Card_Num_Cont = readFrom(chipAddress, eeprom_Card_Num);
   Serial.print("Number of stored cards in EEPROM: "); Serial.println(eeprom_Card_Num_Cont);
-  Serial.print("Number of stored cards in Arduino EEPROM: "); Serial.println(EEPROM.get(8, Ardueeprom_card_num_cont));
+  //Serial.print("Number of stored cards in Arduino EEPROM: "); Serial.println(EEPROM.get(8, Ardueeprom_card_num_cont));
   eeprom_All_Card_Data_Bytes_Cont = readFrom(chipAddress, eeprom_All_Card_Data_Bytes);
   Serial.print("Number of stored cards byte address: "); Serial.println(eeprom_All_Card_Data_Bytes_Cont);
-  Serial.print("Number of stored cards byte address in Arduino EEPROM: "); Serial.println(EEPROM.get(7, Ardueeprom_all_Card_data_bytes_cont));
+  //Serial.print("Number of stored cards byte address in Arduino EEPROM: "); Serial.println(EEPROM.get(7, Ardueeprom_all_Card_data_bytes_cont));
   unsigned long i = 0;
   while ( i < eeprom_All_Card_Data_Bytes_Cont)
   {
@@ -2995,21 +3024,21 @@ void EEPROM_Vansiher()
     i++;
     EEPROM_RGB_BLINK();
   }
-  EEPROM.put(8, 0);
+  //EEPROM.put(8, 0);
   writeTo(chipAddress, eeprom_Card_Num, 0);
   
   eeprom_Card_Num_Cont = readFrom(chipAddress, eeprom_Card_Num);
   Serial.print("Number of cards are after EEPROM delete:"); Serial.println(eeprom_Card_Num_Cont);
-  Serial.print("Number of cards are after Arduino EEPROM delete:"); Serial.println(EEPROM.get(8, Ardueeprom_card_num_cont));
-  EEPROM.put(7, 0);
+  //Serial.print("Number of cards are after Arduino EEPROM delete:"); Serial.println(EEPROM.get(8, Ardueeprom_card_num_cont));
+  //EEPROM.put(7, 0);
   writeTo(chipAddress, eeprom_All_Card_Data_Bytes, 0);
   
   eeprom_Card_Num_Cont = readFrom(chipAddress, eeprom_All_Card_Data_Bytes);
   Serial.print("Number of stored cards byte address after EEPROM delete:"); Serial.println(eeprom_Card_Num_Cont);
-  Serial.print("Number of stored cards byte address after Arduino EEPROM delete:"); Serial.println(EEPROM.get(7, Ardueeprom_all_Card_data_bytes_cont));
+  //Serial.print("Number of stored cards byte address after Arduino EEPROM delete:"); Serial.println(EEPROM.get(7, Ardueeprom_all_Card_data_bytes_cont));
   //Set Number of Card to zero in Arduion EEPROM
-  Serial.print("No Cards in ARDU EEPROM after delete");
-  EEPROM.write(6, 0);
+  //Serial.print("No Cards in ARDU EEPROM after delete");
+  //EEPROM.write(6, 0);
   SendEEPROM_conf_to_Nextion();
 
 }
@@ -3062,10 +3091,12 @@ void SendEEPROM_conf_to_Nextion()
   buzzer_conf_val = EEPROM.read(3);
   led_conf_intesity_val = EEPROM.read(4);
   next_conf_dispblk_val = EEPROM.read(5);
-  num_of_cards_eeprom_val = EEPROM.read(6);
+  //num_of_cards_eeprom_val = EEPROM.read(6);
+  //num_of_cards_eeprom_val = readFrom(chipAddress, eeprom_All_Card_Data_Bytes);
   eeprom_Card_Num_Cont = readFrom(chipAddress, eeprom_Card_Num);
-  unsigned int Ardu_EEPROM_Unsigned_Int;
-  EEPROM.get(8, Ardu_EEPROM_Unsigned_Int);
+  //unsigned int Ardu_EEPROM_Unsigned_Int;
+  //EEPROM.get(8, Ardu_EEPROM_Unsigned_Int);
+  //Meg nem mukodik
   EEPROM.get(9, Ardu_EEPROM_Unsigned_Long_Reed_Time_Delay);
   
   
@@ -3130,7 +3161,7 @@ void SendEEPROM_conf_to_Nextion()
   Serial.print("Number of cards sent to Nextion: "); Serial.println(ConvEpprom_Card_Num);
   //Serial.print("Number of cards in Arduino EEPROM is: "); Serial.println(EEPROM.get(8, Ardu_EEPROM_Unsigned_Int));
 
-  Serial.print("Current Reed Time delay in Arduino EEPROM is: "); Serial.println(Ardu_EEPROM_Unsigned_Long_Reed_Time_Delay);
+  //Serial.print("Current Reed Time delay in Arduino EEPROM is: "); Serial.println(Ardu_EEPROM_Unsigned_Long_Reed_Time_Delay);
   Serial3.print("page12.n8.val=");
   Serial3.print(Ardu_EEPROM_Unsigned_Long_Reed_Time_Delay);
   Serial3.print("\xFF\xFF\xFF");
@@ -3437,18 +3468,22 @@ void SendStartToDB()
 {
   TimeStamp();
   //Year
-  StartDP[9] = DS3231Time[0];
+  StartDP[9] += DS3231Time[0];
   //Month
-  StartDP[10] = DS3231Time[1];
+  StartDP[10] += DS3231Time[1];
   //Day
-  StartDP[11] = DS3231Time[2];
+  StartDP[11] += DS3231Time[2];
   //Hour
-  StartDP[12] = DS3231Time[4];
+  StartDP[12] += DS3231Time[4];
   //Minute
-  StartDP[13] = DS3231Time[5];
+  StartDP[13] += DS3231Time[5];
   //Second
-  StartDP[14] = DS3231Time[6];
+  StartDP[14] += DS3231Time[6];
   Serial.println("Sent Gate Restart Status");
+  for (unsigned int i = 0; i < sizeof(StartDP); i++)
+  {
+    Serial.print(i); Serial.print(". "); Serial.println(StartDP[i]);
+  }
   Serial1.write(StartDP, sizeof(StartDP));
 }
 void CardingTimeOut()
@@ -3459,10 +3494,11 @@ void CardingTimeOut()
   {
     //Serial.println(CardingImpulseCurrentMillis);
     wdt_reset();
-        
+    Serial.print("Current Millis: "); Serial.println(CardingImpulseCurrentMillis);
+    Serial.print("Current Impulse: "); Serial.println(CardingImpulseInterval);    
     CardingImpulseCurrentMillis++;
     sinelon();
-    //delay(85);
+    delay(50);
     FastLED.show();
   }
   CardingImpulseCurrentMillis = 0;
