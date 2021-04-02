@@ -212,6 +212,7 @@ int CurrentTimeDoorOpenedMillis = 0;
 //                                           sig, sig, inf
 uint8_t DOORSTATUS__CLOSED_DATAPACKAGE[18] = {111, 111, 254, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 uint8_t DOORSTATUS_OPENED_DATAPACKAGE[18] = {111, 111, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+uint8_t DOORSTATUS__VALIDATE_DATAPACKAGE[18] = {111, 111, 253, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 //DoorOpenedStat
 byte DOORSTATUS = 9;
 byte DoorOpenedStatus = 0;
@@ -285,7 +286,19 @@ void CountDownTimerPIR();
 void LedBuzzerOpenedGateTimeOut();
 void NoSuppBuzzer();
 void LoRaReset ();
-int DoorOpenedTimeOut(int ReturnDoorTimeOut);
+boolean DoorOpenedTimeOut();
+void ReedTimeOut();
+unsigned long ReedSecondsPrevious = 0;
+unsigned long ReedPreviousMillis = 0;
+unsigned long ReedSencondsInterval = 1000;
+unsigned long ReedSeconds = 0;
+unsigned long ReedEEPROMValue;
+unsigned long ReedCurrentMillis;
+boolean ReedOpen = false;
+boolean ReedClosed = true;
+byte ReedStatusLoop;
+boolean ReedIsActive;
+int ReedReturn = false;
 int MOTIONPIR(int PIRStateControl);
 int OpenedGateTimeOutOn = 400;
 int OpenedGateTimeOutOff = 400;
@@ -468,7 +481,7 @@ for(int i = 0; i < NUM_LEDS; i++ )
 }*/
 void sinelon()
 {
-  if(!EEPROM_RGB_BLINK_BOOL)
+  if(!ReedOpen)
   {
     //FastLED.setBrightness(BRIGHTNESS1);
     fadeToBlackBy(leds,NUM_LEDS, 100);
@@ -1044,166 +1057,21 @@ void HC05JDY30FUNCTION()
   }
   //return;
 }
-int DoorOpenedTimeOut(int ReturnDoorTimeOut)
+boolean DoorOpenedTimeOut()
 {
-  /////////////////////////////////////////////////////////////////////
-  if (DOOROPENEDENABLE == 1)
-  {  
-    ReedState = digitalRead(Reed);
-    //DOORSTATUS = 9;
-    if (ReedState == HIGH)
-    {
-      
-      if (DoorOpenStatusForWS2812B != 1 )
-      {
-        if(!EEPROM_RGB_BLINK_BOOL)
-        {
-          sinelon();
-        }
-      }
-      ReedState = digitalRead(Reed);
-      DoorTimeOut++;
-      /*Serial.print(DoorTimeOut);*/
-      /*CurrentTimeDoorOpenedMillis = millis();
-      Serial.print("Current Millis: "); Serial.println(millis());*/
-      //if (CurrentTimeDoorOpenedMillis >= WaitingOpenedDoor)
-
-      //Serial.println(DoorTimeOut);
-      EEPROM.get(9, WaitingOpenedDoor);
-      if (DoorTimeOut >= WaitingOpenedDoor)
-      {
-        Serial.print("Door Time Out: "); Serial.println(DoorTimeOut);
-        Serial.print("Door WaitingOpenedDoor Value: "); Serial.println(WaitingOpenedDoor);
-        //PrevTimeDoorOpenedMillis = CurrentTimeDoorOpenedMillis;
-        //Nem fog túlcsordulni
-        if(DOORSTATUS >= 10)
-        {
-          DOORSTATUS = 10;
-        }else if (DOORSTATUS <= 8)
-        {
-          DOORSTATUS = 9;
-        }
-        //DoorOpenedStatus = 1;
-        //Serial.println("The Door is Opened!");
-        ReedState = digitalRead(Reed);
-        DoorTimeOut--;
-        //DoorTimeOut = 0;
-        DoorOpenStatusForWS2812B = 1;
-        LedBuzzerOpenedGateTimeOut();
-        DOORSTATUS++;
-        //Serial.print("When it's Opened1: ");Serial.println(DOORSTATUS);
-        //delay(100);
-///////////////////////////////////
-        //return ReturnDoorTimeOut = 1;
-////////////////////////////////////////
-        /*if (ReedState == LOW)
-        {
-          DoorTimeOut = 0;
-          Serial.print(DoorTimeOut); Serial.println("Released");
-          setColor(Off, Off, Standby);
-        }*/
-        ReturnDoorTimeOut = 1;
-        return ReturnDoorTimeOut;
-      }
-      ReturnDoorTimeOut = 2;
-    }
-    else if (ReedState == LOW)
-    {
-      //Serial.print("1st: ");Serial.println(DOORSTATUS);
-
-      if(DOORSTATUS >= 10)
-      {
-        DOORSTATUS = 8;
-      }
-      /*else if (DOORSTATUS < 8)
-      {
-        DOORSTATUS = 8;
-        
-      }else if(DOORSTATUS != 9)
-      {
-        DOORSTATUS--;
-      }*/
-      
-      //Serial.print("When it's Closed1: ");Serial.println(DOORSTATUS);
-      //Serial.println(DOORSTATUS);
-      //Serial.println("The Door is Closed!");
-      DoorOpenedStatus = 0;
-      //ReedState = digitalRead(Reed);
-      DoorTimeOut = 0;
-      DoorOpenStatusForWS2812B = 0;
-      //sinelon();
-      //analogWrite(Buzzer, BuzzerOff);
-
-      //noTone(Buzzer);
-
-      /*Serial.print(DoorTimeOut);
-      Serial.println(" Locked");*/
-/////////////////////////////////////
-      //return ReturnDoorTimeOut = 0;
-///////////////////////////////////
-
-    }
-  /////////////////////////////////////////////////////////////////////
-
-  /////////////////////////////////////////////////////////////////////
-  }else if (DOOROPENEDENABLE == 0)
+  ReedState = digitalRead(Reed);
+  if(ReedState == HIGH)
   {
-  /////////////////////////////////////////////////////////////////////
-  DoorTimeOut = 0;
-  /////////////////////////////////////////////////////////////////////
-  }else
+    //Door is opened
+    ReedReturn = true;
+  }else if(ReedState == LOW)
   {
-    ReedState = digitalRead(Reed);
-    if (ReedState == HIGH)
-    {
-      if (DoorOpenStatusForWS2812B != 1)
-      {
-        if(!EEPROM_RGB_BLINK_BOOL)
-          {
-            sinelon();
-          }
-      }
-      ReedState = digitalRead(Reed);
-      DoorTimeOut++;
-      /*Serial.print(DoorTimeOut);*/
-      Serial.println(" Opened");
-      EEPROM.get(9, WaitingOpenedDoor);
-      if (DoorTimeOut >= WaitingOpenedDoor)
-      {
-        ReedState = digitalRead(Reed);
-        DoorTimeOut--;
-        DoorOpenStatusForWS2812B = 1;
-        LedBuzzerOpenedGateTimeOut();
-//////////////////////
-        //return ReturnDoorTimeOut = 1;
-/////////////////////
-        /*if (ReedState == LOW)
-        {
-          DoorTimeOut = 0;
-          Serial.print(DoorTimeOut); Serial.println("Released");
-          setColor(Off, Off, Standby);
-        }*/
-      }
-    }
-    else if (ReedState == LOW)
-    {
-      ReedState = digitalRead(Reed);
-      DoorTimeOut = 0;
-      //setColor(Off, Off, Standby);
-      //sinelon();
-      //analogWrite(Buzzer, BuzzerOff);
-
-      //noTone(Buzzer);
-
-      /*Serial.print(DoorTimeOut);
-      Serial.println(" Locked");*/
-////////////////////
-      //return ReturnDoorTimeOut = 0;
-//////////////////
-    }
+    //Door is closed
+    ReedReturn = false;
+    ReedSeconds = 0;
+    
   }
-  return ReturnDoorTimeOut;
-  /////////////////////////////////////////////////////////////////////
+  return ReedReturn;
 }
 void loop()
 {
@@ -1223,141 +1091,70 @@ void loop()
   
   
   MOTIONPIR(PIRStateControl);
-  
-  DoorOpenedTimeOut(ReturnDoorTimeOut);
-  
-  
-  ReturnMOTIONPIR = MOTIONPIR(PIRStateControl);
-  
-  //Serial.print("ReturnMOTIONPIR: "); Serial.println(ReturnMOTIONPIR);
-  int ReturnReturnDoorTimeOut = DoorOpenedTimeOut(ReturnDoorTimeOut);
-  //Closed Door
-  if(ReturnReturnDoorTimeOut == 0)
-  {
-    //Serial.print("When it's Closed2: ");Serial.println(DOORSTATUS);
-    /*if (ReturnMOTIONPIR == 0)
-    {
-      //WaitingPIR = millis();
-      //Serial.println("Motion Detected!");
-      //Serial.println(WaitingPIR);
-      setColor(Off, Off, On);
-      PIRState = digitalRead(PIR);
-      Serial.print("PIRState: "); Serial.println(PIRState);
-      Serial.print("PIRCount: "); Serial.println(PIRCount);
-      PIRCount++;
-      if (PIRCount >= PowerOnTime)
-      {
-        PIRState = digitalRead(PIR);
-        PIRCount--;
-        setColor(Off, Off, Standby);
-        Serial.print("PIRCount: "); Serial.println(PIRCount);
-      }
-    }
-    WaitingPIR2 = millis();
-    if(WaitingPIR2 - WaitingPIR > PowerOnTime)
-    {
-      Serial.print("Waiting PIR2: ");Serial.println(WaitingPIR2);
-      Serial.print("Waiting PIR: ");Serial.println(WaitingPIR);
-    setColor(Off, Off, Standby);
-    Serial.println("No Motion!");
-    WaitingPIR2 = 0;
-    WaitingPIR = 0;
-    }*/
-//Serial.print("Zarva!"); Serial.println(DOORSTATUS);
-    if (DOORSTATUS == 8)
-      {
-        Serial.print("The Door is Closed at: ");
-        TimeStamp();
-        DOORSTATUS__CLOSED_DATAPACKAGE[9] = DS3231Time[0];
-        //Month
-        DOORSTATUS__CLOSED_DATAPACKAGE[10] = DS3231Time[1];
-        //Day
-        DOORSTATUS__CLOSED_DATAPACKAGE[11] = DS3231Time[2];
-        //Hour
-        DOORSTATUS__CLOSED_DATAPACKAGE[12] = DS3231Time[4];
-        //Minute
-        DOORSTATUS__CLOSED_DATAPACKAGE[13] = DS3231Time[5];
-        //Second
-        DOORSTATUS__CLOSED_DATAPACKAGE[14] = DS3231Time[6];
-        Serial1.write(DOORSTATUS__CLOSED_DATAPACKAGE, sizeof(DOORSTATUS__CLOSED_DATAPACKAGE));
 
-        //Serial1.write(DS3231Time, sizeof(DS3231Time));
-        DOORSTATUS--;
-      }
-    
-      if (ReturnMOTIONPIR == 1)
-      {
-        PIRStat2 = 1;
-      }
-      if (PIRStat2 == 1)
-      {
-        
-        Serial.println("Itt2!");
-        //setColor(Off, Off, On);
-        WS2812BBlue();
-        WS2812BTrunOff = 1;
-        PIRCount++;
-        //Serial.print("PIRCount: "); Serial.println(PIRCount);
-        if (PIRCount >= PowerOnTime)
-        {
-          if(PIRON)
-          {
-            PIRState = digitalRead(PIR);
-          }
-          PIRCount--;
-          //setColor(Off, Off, Standby);
-          
-          //Serial.println("Itt!");
-          //Serial.print("PIRCount: "); Serial.println(PIRCount);
-          PIRStat2 = 0;
-          PIRCount = 0;
-        }
-      }
-      else if (ReturnMOTIONPIR == 0)
-      {
-        PIRStat2 = 0;
-      }
-      if (PIRStat2 == 0)
-      {
-        if(!EEPROM_RGB_BLINK_BOOL)
-        {
-          //Idejon alapbol 
-          //sinelon();
-        }
-      }
-    
-    //Opened Door
-  }else if (ReturnReturnDoorTimeOut == 1)
+  ReedStatusLoop = EEPROM.read(2);
+  if(ReedStatusLoop == 2)
   {
-    DoorOpenedStatus = 0;
-    //Serial.print("When it's Opened2: ");Serial.println(DOORSTATUS);
-    if (DOORSTATUS == 10)
+    ReedIsActive = false;
+    ReedSeconds = 0;
+    ReedOpen = false;
+  }else if(ReedStatusLoop == 1)
+  {
+    ReedIsActive = true;
+  }
+  if(ReedIsActive)
+  {
+    if(DoorOpenedTimeOut())
     {
-      Serial.print("The Door is Opened at: ");
+      ReedTimeOut();
+    }else if(!DoorOpenedTimeOut() && ReedOpen)
+    {
+      Serial.println("The door is closed at: ");
       TimeStamp();
-      DOORSTATUS_OPENED_DATAPACKAGE[9] = DS3231Time[0];
+      delay(50);
+      //Year
+      DOORSTATUS__CLOSED_DATAPACKAGE[9] = DS3231Time[0];
       //Month
-      DOORSTATUS_OPENED_DATAPACKAGE[10] = DS3231Time[1];
+      DOORSTATUS__CLOSED_DATAPACKAGE[10] = DS3231Time[1];
       //Day
-      DOORSTATUS_OPENED_DATAPACKAGE[11] = DS3231Time[2];
+      DOORSTATUS__CLOSED_DATAPACKAGE[11] = DS3231Time[2];
       //Hour
-      DOORSTATUS_OPENED_DATAPACKAGE[12] = DS3231Time[4];
+      DOORSTATUS__CLOSED_DATAPACKAGE[12] = DS3231Time[4];
       //Minute
-      DOORSTATUS_OPENED_DATAPACKAGE[13] = DS3231Time[5];
+      DOORSTATUS__CLOSED_DATAPACKAGE[13] = DS3231Time[5];
       //Second
-      DOORSTATUS_OPENED_DATAPACKAGE[14] = DS3231Time[6];
-      Serial1.write(DOORSTATUS_OPENED_DATAPACKAGE, sizeof(DOORSTATUS_OPENED_DATAPACKAGE));
-      //Serial1.write(DS3231Time, sizeof(DS3231Time));
+      DOORSTATUS__CLOSED_DATAPACKAGE[14] = DS3231Time[6];
+      Serial1.write(DOORSTATUS__CLOSED_DATAPACKAGE, sizeof(DOORSTATUS__CLOSED_DATAPACKAGE));
+      ReedOpen = false;
     }
   }
-  //CardingImpulseCurrentMillis = millis();
-  
   if(Card_dat_down_No_Card)
   {
     //Serial.println("Uhasfasg");
     //nfc.SAMConfig();
     if(cardreading())
       {
+        if(ReedOpen)
+        {   
+          Serial.println("Card is validated the Door opening.");
+          TimeStamp();
+          delay(50);
+          //Year
+          DOORSTATUS__VALIDATE_DATAPACKAGE[9] = DS3231Time[0];
+          //Month
+          DOORSTATUS__VALIDATE_DATAPACKAGE[10] = DS3231Time[1];
+          //Day
+          DOORSTATUS__VALIDATE_DATAPACKAGE[11] = DS3231Time[2];
+          //Hour
+          DOORSTATUS__VALIDATE_DATAPACKAGE[12] = DS3231Time[4];
+          //Minute
+          DOORSTATUS__VALIDATE_DATAPACKAGE[13] = DS3231Time[5];
+          //Second
+          DOORSTATUS__VALIDATE_DATAPACKAGE[14] = DS3231Time[6];
+          Serial1.write(DOORSTATUS__VALIDATE_DATAPACKAGE, sizeof(DOORSTATUS__VALIDATE_DATAPACKAGE));
+          ReedOpen = true;
+          ReedReturn = false;
+        }
         //myRfid.begin();
         Serial.print("Carding at: ");
         TimeStamp();
@@ -1602,30 +1399,20 @@ void NFCINITIALIZE ()
         }
         while (nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, &uid[0], &uidLength))
         {
-          RerturnDoorTimeOutCardReading = DoorOpenedTimeOut(ReturnDoorTimeOut);
+          /*RerturnDoorTimeOutCardReading = DoorOpenedTimeOut(ReturnDoorTimeOut);
           //ha nincs nyitva van, akkor legyen kek feny
-          //Serial.print("Door Return Byte: "); Serial.println(RerturnDoorTimeOutCardReading);
           if (RerturnDoorTimeOutCardReading == 0)
           {
-            //Serial.println("The Door is Closed 2!");
             WS2812BBlue();
             RerturnDoorTimeOutCardReading = 2;
-            
-
             //ha nyitva van, akkor ne legyen kek feny
           }else if (RerturnDoorTimeOutCardReading == 1)
           {
-            //Serial.println("The Door is Opened 2!");
-            //LedBuzzerOpenedGateTimeOut();
+
             WS2812BYellow2();
             RerturnDoorTimeOutCardReading = 2;
-          }
-          /*else
-          {
-            WS2812BBlue();
-          }
-          
-            //WS2812BBlue();*/
+          }*/
+
         }
         /*while (nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, &uid[0], &uidLength))
         {
@@ -2465,7 +2252,7 @@ void ReadFromNextion()
           //Save REED TO EEPROM From Nextion
         }else if(NextionBuffer[0] == 0x30 &&NextionBuffer[1] == 0x63 && NextionBuffer[2] == 0x51)
         {
-          Serial.print("Hat most ide bejottem");
+          Serial.print("Hat most ide bejottem \n");
           boolean REEDBOOL = true;
           String REEDData;
           do
@@ -2479,13 +2266,16 @@ void ReadFromNextion()
           unsigned int REEDDataLen = REEDData.length();
           Serial.print("Got Reed Time delay: "); Serial.println(REEDData);
           Serial.print("Time delay String length is: "); Serial.println(REEDDataLen);
-          unsigned int ReedDataInt = REEDData.toInt();
+          //unsigned int ReedDataInt = REEDData.toInt();
+          unsigned long ReedDataInt = REEDData.toInt();
           Serial.print("String to Unsigned int: "); Serial.println(ReedDataInt);
-          NextionWaitingOpenedDoor = (unsigned long)ReedDataInt;
-          Serial.print("Int to Unsigned Long: "); Serial.println(NextionWaitingOpenedDoor);
+          //NextionWaitingOpenedDoor = (unsigned long)ReedDataInt;
+          NextionWaitingOpenedDoor = ReedDataInt;
+          Serial.print("Unsigned Long: "); Serial.println(NextionWaitingOpenedDoor);
           EEPROM.put(9, NextionWaitingOpenedDoor);
           
           SendEEPROM_conf_to_Nextion();
+          
           //NextionBufferClear 
         }else
         {
@@ -3084,9 +2874,8 @@ void InsideEEPROM_Conf_for_Nextion()
 void SendEEPROM_conf_to_Nextion()
 {
   byte led_conf_val, pir_conf_val, reed_conf_val, buzzer_conf_val, led_conf_intesity_val, next_conf_dispblk_val, num_of_cards_eeprom_val;
-  
-  led_conf_val = EEPROM.read(1);
   pir_conf_val = EEPROM.read(0);
+  led_conf_val = EEPROM.read(1);
   reed_conf_val = EEPROM.read(2);
   buzzer_conf_val = EEPROM.read(3);
   led_conf_intesity_val = EEPROM.read(4);
@@ -3161,7 +2950,7 @@ void SendEEPROM_conf_to_Nextion()
   Serial.print("Number of cards sent to Nextion: "); Serial.println(ConvEpprom_Card_Num);
   //Serial.print("Number of cards in Arduino EEPROM is: "); Serial.println(EEPROM.get(8, Ardu_EEPROM_Unsigned_Int));
 
-  //Serial.print("Current Reed Time delay in Arduino EEPROM is: "); Serial.println(Ardu_EEPROM_Unsigned_Long_Reed_Time_Delay);
+  Serial.print("Current Reed Time delay in Arduino EEPROM is: "); Serial.println(Ardu_EEPROM_Unsigned_Long_Reed_Time_Delay);
   Serial3.print("page12.n8.val=");
   Serial3.print(Ardu_EEPROM_Unsigned_Long_Reed_Time_Delay);
   Serial3.print("\xFF\xFF\xFF");
@@ -3497,8 +3286,14 @@ void CardingTimeOut()
     Serial.print("Current Millis: "); Serial.println(CardingImpulseCurrentMillis);
     Serial.print("Current Impulse: "); Serial.println(CardingImpulseInterval);    
     CardingImpulseCurrentMillis++;
-    sinelon();
-    delay(50);
+    if(!ReedOpen)
+    {
+      sinelon();
+      delay(50);
+    }else if(ReedOpen)
+    {
+      LedBuzzerOpenedGateTimeOut();
+    }
     FastLED.show();
   }
   CardingImpulseCurrentMillis = 0;
@@ -3525,4 +3320,45 @@ void RCDDSucc()
   {
     Serial.print(i); Serial.print(". "); Serial.println(HC05SmartPhoneDp[i]);
   }
+}
+void ReedTimeOut()
+{
+  //unsigned long ReedSeconds = (millis() / 1000) % 3600;
+  ReedCurrentMillis = millis();
+  EEPROM.get(9, ReedEEPROMValue);
+  //Serial.print("Current Millis: "); Serial.println(ReedCurrentMillis);
+  //Serial.print("ReedSeconds: "); Serial.println(ReedSeconds);
+  if((ReedCurrentMillis - ReedPreviousMillis > ReedSencondsInterval) && !ReedOpen)
+  {
+    Serial.print("ReedSeconds: "); Serial.println(ReedSeconds);
+    ReedPreviousMillis = ReedCurrentMillis;
+    ReedSeconds++;
+  }
+  //Serial.print("ReedPrevious Millis: "); Serial.println(ReedPreviousMillis);
+  if((ReedSeconds > ReedEEPROMValue) && !ReedOpen)
+  {
+    Serial.println("The door is opened at: ");
+    TimeStamp();
+    delay(50);
+    //Year
+    DOORSTATUS_OPENED_DATAPACKAGE[9] = DS3231Time[0];
+    //Month
+    DOORSTATUS_OPENED_DATAPACKAGE[10] = DS3231Time[1];
+    //Day
+    DOORSTATUS_OPENED_DATAPACKAGE[11] = DS3231Time[2];
+    //Hour
+    DOORSTATUS_OPENED_DATAPACKAGE[12] = DS3231Time[4];
+    //Minute
+    DOORSTATUS_OPENED_DATAPACKAGE[13] = DS3231Time[5];
+    //Second
+    DOORSTATUS_OPENED_DATAPACKAGE[14] = DS3231Time[6];
+    Serial1.write(DOORSTATUS_OPENED_DATAPACKAGE, sizeof(DOORSTATUS_OPENED_DATAPACKAGE));
+    ReedOpen = true;
+    ReedSeconds = 0;
+  }
+  if(ReedOpen)
+  {
+    LedBuzzerOpenedGateTimeOut();
+  }
+  
 }
