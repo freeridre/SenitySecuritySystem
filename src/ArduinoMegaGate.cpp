@@ -69,7 +69,7 @@ uint8_t uidLength, timeout;                        // Length of the UID (4 or 7 
 uint8_t uidDataPackage[18] = {255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 uint8_t SecurityDataPackage[18] = {111, 111, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 uint8_t StartDP[18] = {111, 111, 35, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-
+uint8_t TimeSynchDP[18] = {111, 111, 38, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 void SendStartToDB();
 byte uidBytesCount = 0;
 uint8_t CardExtension [3] = {0, 0, 0};
@@ -107,7 +107,7 @@ void SuccessProgramingBuzzer();
 uint8_t myData[10] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
 #define chipAddress 80
 unsigned cellAddress;
-void writeTo(int chAddress, unsigned int ceAddress, byte wData);
+void writeTo(int chAddress, unsigned int ceAddress, unsigned long wData);
 byte readFrom(int chAddress, unsigned int ceAddress);
 void EEPROMReadOutAll();
 void EEPROMDeleteAll();
@@ -121,7 +121,7 @@ unsigned long EEPROM_Current_TIME = 0;
 unsigned long EEPROM_Passed_TIME = 0;
 unsigned long EEPROM_TIME_DIF = 50;
 byte RGB_index = 0;
-void writeTo(int chAddress, unsigned int ceAddress, byte wData);
+void writeTo(int chAddress, unsigned long ceAddress, unsigned long wData);
 byte readFrom(int chAddress, unsigned long ceAddress);
 void EEPROMReadOutAll();
 void EEPROMDeleteAll();
@@ -265,6 +265,7 @@ void BuzzNextionSuccess();
 void BuzzNextionDenied();
 void NextionBuzzer();
 void SendTimeToNextion();
+void SendTimeToNextionUpdate();
 void TimeToNextion();
 void NextionPassCodeTimeOut();
 void NextionBuzzerQuit();
@@ -308,6 +309,8 @@ unsigned long OpenedDoorOnTime = 250;
 unsigned long OpenedDoorOffTime = 250;
 unsigned long OffTime = 1000;
 boolean DoorOpenState = false;
+uint8_t DS3231PrevTime = 0;
+unsigned long TSynchmillisprev = 0;
 void WS2812BYellow2();
 
 void CardfromDBToEEPROM();
@@ -776,6 +779,7 @@ void setup()
   ///////////////////////
 
   TimeNow();
+  DS3231PrevTime = DS3231Time[5];
   //////////////////////////////
   LoRaReset();
   delay(2000);
@@ -898,7 +902,7 @@ void RecieveDataFromGateLoRa()
     
     Serial.print("Unit8_t converted to number of card value to int: "); Serial.println(IntCardNum);
     //EEPROM.put(8, Ardueeprom_card_num_cont);  
-    writeTo(chipAddress, eeprom_Card_Num,  ControlData[3]);
+    writeTo(chipAddress, eeprom_Card_Num,  long(ControlData[3]));
     //Release Last Card data address
     //EEPROM.put(7, 0);
     writeTo(chipAddress, eeprom_All_Card_Data_Bytes, 0);
@@ -978,7 +982,7 @@ void CardfromDBToEEPROM()
   while(Cardi < sizeof(ControlData))
   {
     EEPROM_RGB_BLINK();    
-    writeTo(chipAddress, eeprom_All_Card_Data_Bytes_Cont, ControlData[Cardi]);
+    writeTo(chipAddress, eeprom_All_Card_Data_Bytes_Cont, long(ControlData[Cardi]));
     Serial.print(eeprom_All_Card_Data_Bytes_Cont);
     Serial.print(" Actual UID byte is: "); Serial.println(readFrom(chipAddress, eeprom_All_Card_Data_Bytes_Cont), HEX);
     //EEPROM.get(7, Ardueeprom_all_Card_data_bytes_cont);
@@ -1087,7 +1091,8 @@ void loop()
   NextionCurrentTime = millis();
   
   ReadFromNextion();
-  SendTimeToNextion();
+  //SendTimeToNextion();
+  SendTimeToNextionUpdate();
   
   
   MOTIONPIR(PIRStateControl);
@@ -2245,6 +2250,32 @@ void ReadFromNextion()
           //Input: 2018-12-31-00-11-21-
                 
           rtc.adjust(DateTime(Year, Month, Day, Hour, Minute, Second) + TimeSpan(2));
+          //Synch Nextion RTC with DS3231 RTC module
+          TimeToNextion();
+          Serial3.print("n0.val=");
+          //Serial3.print(2000);
+          Serial3.print(DS3231Time[0]+2000);
+          Serial3.print("\xFF\xFF\xFF");
+          //Serial.println(DS3231Time[0]+2000);
+          Serial3.print("n1.val=");
+          Serial3.print(DS3231Time[1]);
+          Serial3.print("\xFF\xFF\xFF");
+
+          Serial3.print("n2.val=");
+          Serial3.print(DS3231Time[2]);
+          Serial3.print("\xFF\xFF\xFF");
+
+          Serial3.print("n3.val=");
+          Serial3.print(DS3231Time[4]);
+          Serial3.print("\xFF\xFF\xFF");
+
+          Serial3.print("n4.val=");
+          Serial3.print(DS3231Time[5]);
+          Serial3.print("\xFF\xFF\xFF");
+
+          Serial3.print("n5.val=");
+          Serial3.print(DS3231Time[6]);
+          Serial3.print("\xFF\xFF\xFF");
           //Set Reed page in nextion
         }else if(NextionBuffer[0] == 0x63 &&NextionBuffer[1] == 0x62 && NextionBuffer[2] == 0x61)
         {
@@ -2384,6 +2415,74 @@ void SendTimeToNextion()
         //Serial.println(DS3231Time[6]);
         Serial3.print("\xFF\xFF\xFF");
     }
+}
+void SendTimeToNextionUpdate()
+{  
+  TimeToNextion();
+  boolean TSynch = true;
+  unsigned long TSynchmillis = millis(); //5422 - 5945 = 1000
+  /*Serial.print("TSynchmillis: ");Serial.println(TSynchmillis);
+  Serial.print("TSynchmillisprev: ");Serial.println(TSynchmillisprev);*/
+  if(DS3231Time[4] == 9 && DS3231Time[5] == 20 && DS3231Time[6] == 0 && (TSynchmillis - TSynchmillisprev >= 1000))
+  //if(DS3231Time[5] >= DS3231PrevTime + 1)
+  //if(DS3231Time[4] >= DS3231PrevTime + 12)
+  {
+    TSynchmillisprev = TSynchmillis;
+    Serial.print("DS3231PrevTime: ");Serial.println(DS3231PrevTime);
+    Serial.print("DS3231Minute: ");Serial.println(DS3231Time[5]);
+    Serial.println("Time synch");
+    //Send Data to Nextion to Know it's time synch
+    Serial3.print("TimeSynch.val=");
+    Serial3.print(1);
+    Serial3.print("\xFF\xFF\xFF");
+    //DS3231PrevTime = DS3231Time[4];
+    DS3231PrevTime = DS3231Time[5];
+    TimeToNextion();
+    Serial3.print("n0.val=");
+    //Serial3.print(2000);
+    Serial3.print(DS3231Time[0]+2000);
+    Serial3.print("\xFF\xFF\xFF");
+    //Serial.println(DS3231Time[0]+2000);
+    Serial3.print("n1.val=");
+    Serial3.print(DS3231Time[1]);
+    Serial3.print("\xFF\xFF\xFF");
+
+    Serial3.print("n2.val=");
+    Serial3.print(DS3231Time[2]);
+    Serial3.print("\xFF\xFF\xFF");
+
+    Serial3.print("n3.val=");
+    Serial3.print(DS3231Time[4]);
+    Serial3.print("\xFF\xFF\xFF");
+
+    Serial3.print("n4.val=");
+    Serial3.print(DS3231Time[5]);
+    Serial3.print("\xFF\xFF\xFF");
+
+    Serial3.print("n5.val=");
+    Serial3.print(DS3231Time[6]);
+    //Serial.println(DS3231Time[6]);
+    Serial3.print("\xFF\xFF\xFF");
+    Serial.println("TimeSynch event sent to DB.");
+    TimeStamp();
+  //Year
+  TimeSynchDP[9] += DS3231Time[0];
+  //Month
+  TimeSynchDP[10] += DS3231Time[1];
+  //Day
+  TimeSynchDP[11] += DS3231Time[2];
+  //Hour
+  TimeSynchDP[12] += DS3231Time[4];
+  //Minute
+  TimeSynchDP[13] += DS3231Time[5];
+  //Second
+  TimeSynchDP[14] += DS3231Time[6];
+  Serial1.write(TimeSynchDP, sizeof(TimeSynchDP));
+  }else if(DS3231Time[5] == 0)
+  {
+    DS3231PrevTime = DS3231Time[5];
+    TSynchmillisprev = TSynchmillis;
+  }
 }
 void NextionWriteArduinoEEPROM()
 {
@@ -2585,7 +2684,7 @@ void NextionReadArduinoEEPROM2()
 
 
 }
-void writeTo(int chAddress, unsigned int ceAddress, byte wData)
+void writeTo(int chAddress, unsigned long ceAddress, unsigned long wData)
 {
   EEPROM_BLINK_COLOR_CHANGE = 1;
   Wire.beginTransmission(chAddress);
